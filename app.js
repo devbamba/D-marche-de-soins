@@ -1,0 +1,174 @@
+/* ===== 1. CONFIGURATION : on modifie les champs ici, l’affichage suit ===== */
+const OPT = {
+  sexe:["Masculin","Féminin"],
+  religion:["Musulman(e)","Chrétien(ne)","Animiste","Autre"],
+  civil:["Célibataire","Marié(e)","Veuf / Veuve","Divorcé(e)"],
+  menage:["Monogame","Polygame","Autre"]
+};
+const S = [
+ {id:"a", t:"Identification du patient", f:[
+  {id:"prenom",l:"Prénom",ty:"text",req:1},
+  {id:"nom",l:"Nom",ty:"text",req:1},
+  {id:"age",l:"Âge (ans)",ty:"number",req:1,min:0,max:120},
+  {id:"sexe",l:"Sexe",ty:"select",o:OPT.sexe,req:1},
+  {id:"religion",l:"Religion",ty:"select",o:OPT.religion},
+  {id:"ethnie",l:"Ethnie",ty:"text"},
+  {id:"civil",l:"État civil",ty:"select",o:OPT.civil},
+  {id:"menage",l:"Type de ménage",ty:"select",o:OPT.menage},
+  {id:"profession",l:"Profession",ty:"text"},
+  {id:"travail",l:"Lieu de travail",ty:"text"},
+  {id:"adresse",l:"Adresse du domicile",ty:"text",full:1},
+  {id:"entree",l:"Date d’entrée",ty:"date",req:1},
+  {id:"lieu",l:"Lieu d’hospitalisation (service)",ty:"text",req:1},
+  {id:"diag",l:"Diagnostic d’entrée",ty:"text",req:1,full:1}
+ ]},
+ {id:"b", t:"Antécédents", f:[
+  {id:"ant_med",l:"Personnels : médicaux",ty:"area",full:1},
+  {id:"ant_chir",l:"Personnels : chirurgicaux",ty:"area",full:1},
+  {id:"ant_obs",l:"Personnels : obstétricaux",ty:"area",full:1,show:d=>d.sexe==="Féminin"},
+  {id:"ant_fam",l:"Familiaux",ty:"area",full:1}
+ ]},
+ {id:"c", t:"Modes de vie", f:[
+  {id:"imc",l:"Obésité : IMC",ty:"imc",full:1},
+  {id:"alcool",l:"Alcoolisme",ty:"yn"},
+  {id:"sport",l:"Pratique du sport",ty:"yn"},
+  {id:"sport_freq",l:"Fréquence du sport",ty:"text",show:d=>d.sport==="Oui",full:1},
+  {id:"alim",l:"Habitudes alimentaires",ty:"area",full:1}
+ ]},
+ {id:"d", t:"Résumé de l’histoire de la maladie", f:[
+  {id:"guide",ty:"guide",full:1},
+  {id:"histoire",l:"Résumé",ty:"area",full:1,req:1}
+ ]},
+ {id:"e", t:"Examen clinique", f:[
+  {id:"examen",l:"Observations de l’examen clinique",ty:"area",full:1}
+ ]},
+ {id:"f", t:"Constantes du jour", f:[
+  {id:"c_date",l:"Date et heure",ty:"datetime-local"},
+  {id:"temp",l:"Température (°C)",ty:"number",step:"0.1",min:30,max:45},
+  {id:"ta",l:"Tension artérielle (mmHg)",ty:"text",ph:"ex. 120/80"},
+  {id:"pouls",l:"Pouls (bpm)",ty:"number",min:20,max:250},
+  {id:"fr",l:"Fréquence respiratoire (/min)",ty:"number",min:4,max:80},
+  {id:"spo2",l:"SpO₂ (%)",ty:"number",min:50,max:100},
+  {id:"poids",l:"Poids (kg)",ty:"number",min:1,max:300,step:"0.1"},
+  {id:"taille",l:"Taille (cm)",ty:"number",min:30,max:250},
+ ]},
+ {id:"g", t:"Données supplémentaires", f:[
+  {id:"supp",l:"Autres informations utiles",ty:"area",full:1}
+ ]}
+];
+
+/* ===== 2. ÉTAT ===== */
+const data = {};
+const $ = s => document.querySelector(s);
+
+/* ===== 3. AFFICHAGE ===== */
+function fieldHTML(f){
+  const id = "f_"+f.id, lab = `<label for="${id}" class="${f.req?'req':''}">${f.l}</label>`;
+  let c = "";
+  if(f.ty==="select") c = `<select id="${id}" data-k="${f.id}"><option value="">Choisir…</option>${f.o.map(o=>`<option>${o}</option>`).join("")}</select>`;
+  else if(f.ty==="area") c = `<textarea id="${id}" data-k="${f.id}"></textarea>`;
+  else if(f.ty==="yn") return `<div class="fld" data-f="${f.id}"><span class="lab">${f.l}</span><div class="radios">${["Oui","Non"].map(v=>`<label><input type="radio" name="${f.id}" data-k="${f.id}" value="${v}">${v}</label>`).join("")}</div></div>`;
+  else if(f.ty==="guide") return `<div class="fld full" data-f="guide"><button type="button" class="btn alt" id="guideBtn">Guide de rédaction</button><div id="guidePanel" class="guide hidden"></div></div>`;
+  else if(f.ty==="imc") return `<div class="fld full" data-f="imc"><span class="lab">${f.l}</span><div class="imc" id="imcBox">Renseigner le poids et la taille dans les constantes du jour</div></div>`;
+  else c = `<input id="${id}" data-k="${f.id}" type="${f.ty}" ${f.min!=null?`min="${f.min}"`:""} ${f.max!=null?`max="${f.max}"`:""} ${f.step?`step="${f.step}"`:""} ${f.ph?`placeholder="${f.ph}"`:""}>`;
+  return `<div class="fld ${f.full?'full':''}" data-f="${f.id}">${lab}${c}</div>`;
+}
+
+function build(){
+  $("#nav").innerHTML = S.map((s,i)=>`<button data-go="${i}">${s.t}</button>`).join("");
+  $("#form").innerHTML = S.map((s,i)=>`<fieldset data-s="${i}"><legend>${s.t}</legend><div class="grid">${s.f.map(fieldHTML).join("")}</div></fieldset>`).join("");
+  $("#actions").innerHTML = `<span></span><button class="btn" id="save">Enregistrer</button>`;
+  update();
+}
+function update(){
+  // champs conditionnels
+  S.forEach(s=>s.f.forEach(f=>{
+    if(f.show){ const n=document.querySelector(`[data-f="${f.id}"]`); n&&n.classList.toggle("hidden",!f.show(data)); }
+  }));
+  calcIMC();
+  renderGuide();
+}
+function calcIMC(){
+  const box=$("#imcBox"); if(!box) return;
+  const p=parseFloat(data.poids), t=parseFloat(data.taille)/100;
+  if(!p||!t){ box.textContent="Renseigner le poids et la taille dans les constantes du jour"; data.imc=""; return; }
+  const v=p/(t*t); let c,col;
+  if(v<18.5){c="Maigreur";col="var(--warn)"} else if(v<25){c="Poids normal";col="var(--ok)"} else if(v<30){c="Surpoids";col="var(--warn)"} else {c="Obésité";col="var(--warn)"}
+  data.imc=v.toFixed(1);
+  box.innerHTML=`<b>${data.imc}</b> kg/m² <span style="color:${col}">· ${c}</span>`;
+}
+
+
+/* ===== GUIDE DE RÉDACTION : histoire de la maladie ===== */
+const GUIDE = [
+  ["Mode de début","Quand les symptômes ont-ils commencé ? Début brutal ou progressif ? Dans quelles circonstances ?"],
+  ["Évolution des symptômes","Quels symptômes, dans quel ordre, avec quelle intensité ? Qu’est-ce qui les aggrave ou les soulage ?"],
+  ["Avant l’admission","Automédication, tradipraticien, poste de santé ? Quel traitement reçu, avec quel effet ?"],
+  ["Admission","Pourquoi consulter à ce moment-là ? Quel était l’état du patient à l’entrée ?"],
+  ["Depuis l’hospitalisation","Amélioration ou aggravation ? Examens réalisés, traitements instaurés ?"]
+];
+let insTexts = [];
+const TODO = "[à compléter]";
+function fdate(d){ return d ? d.split("-").reverse().join("/") : TODO; }
+function phraseCivil(){
+  const f = data.sexe==="Féminin";
+  const civ = f ? "Mme" : (data.sexe==="Masculin" ? "M." : "");
+  const nom = [civ, data.prenom, data.nom].filter(Boolean).join(" ") || TODO;
+  const p = [nom, data.age ? data.age+" ans" : TODO];
+  if(data.profession) p.push(data.profession);
+  if(data.civil) p.push(data.civil.toLowerCase());
+  let s = p.join(", ");
+  s += data.ant_med ? ", aux antécédents médicaux de : "+data.ant_med.trim() : ", antécédents médicaux : "+TODO;
+  return s+".";
+}
+function phraseAdmission(){
+  const adm = data.sexe==="Féminin" ? "admise" : "admis";
+  return `Le patient est ${adm} le ${fdate(data.entree)} dans le service ${data.lieu||TODO} pour ${data.diag||TODO}.`.replace("Le patient", data.sexe==="Féminin" ? "La patiente" : "Le patient");
+}
+function renderGuide(){
+  const box = $("#guidePanel"); if(!box || box.classList.contains("hidden")) return;
+  insTexts = [phraseCivil(), phraseAdmission()];
+  const vie = [];
+  if(data.alcool==="Oui") vie.push("consommation d’alcool");
+  if(data.imc) vie.push("IMC "+data.imc);
+  box.innerHTML =
+    `<p class="lab">Plan conseillé : écris au passé et dans l’ordre chronologique, sans inventer de données.</p>`+
+    `<div class="sug"><b>1. Présentation du patient</b><p>${insTexts[0]}</p><button type="button" class="btn alt" data-ins="0">Insérer dans le résumé</button></div>`+
+    GUIDE.map((g,i)=>`<div class="sug"><b>${i+2}. ${g[0]}</b><p>${g[1]}</p>`+
+      (g[0]==="Admission" ? `<p><i>${insTexts[1]}</i></p><button type="button" class="btn alt" data-ins="1">Insérer dans le résumé</button>` : "")+`</div>`).join("")+
+    (vie.length ? `<p class="lab">À mentionner si pertinent : ${vie.join(", ")}.</p>` : "");
+}
+function insertText(t){
+  const el = $("#f_histoire"); if(!el) return;
+  el.value = el.value.trim() ? el.value.trim()+"\n\n"+t : t;
+  data.histoire = el.value; el.classList.remove("bad"); el.focus();
+}
+
+/* ===== 4. ÉVÉNEMENTS ===== */
+document.addEventListener("input",e=>{
+  const k=e.target.dataset&&e.target.dataset.k; if(!k) return;
+  data[k]=e.target.value; e.target.classList.remove("bad");
+  update();
+});
+document.addEventListener("click",e=>{
+  const t=e.target;
+  if(t.dataset.go!==undefined) document.querySelector(`fieldset[data-s="${t.dataset.go}"]`).scrollIntoView({behavior:"smooth"});
+  else if(t.id==="guideBtn"){ $("#guidePanel").classList.toggle("hidden"); renderGuide(); }
+  else if(t.dataset.ins!==undefined) insertText(insTexts[+t.dataset.ins]);
+  else if(t.id==="save") save();
+});
+
+function save(){
+  const missing=[];
+  S.forEach(s=>s.f.forEach(f=>{ if(f.req && !data[f.id]) missing.push(f); }));
+  document.querySelectorAll(".bad").forEach(n=>n.classList.remove("bad"));
+  if(missing.length){
+    missing.forEach(f=>{const el=document.getElementById("f_"+f.id); el&&el.classList.add("bad");});
+    $("#msg").textContent="Champs obligatoires manquants : "+missing.map(f=>f.l).join(", ")+".";
+    return;
+  }
+  $("#msg").textContent="";
+  const out=$("#out"); out.classList.remove("hidden"); out.textContent=JSON.stringify(data,null,2);
+  out.scrollIntoView({behavior:"smooth"});
+}
+build();
