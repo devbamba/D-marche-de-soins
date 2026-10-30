@@ -53,7 +53,7 @@ const S = [
   {id:"taille",l:"Taille (cm)",ty:"number",min:30,max:250},
  ]},
  {id:"g", t:"Données supplémentaires", f:[
-  {id:"supp",l:"Autres informations utiles",ty:"area",full:1}
+  {id:"supp",l:"Autres informations utiles",ty:"area",ph:"Ex. : Données paracliniques…",full:1}
  ]}
 ];
 
@@ -66,7 +66,7 @@ function fieldHTML(f){
   const id = "f_"+f.id, lab = `<label for="${id}" class="${f.req?'req':''}">${f.l}</label>`;
   let c = "";
   if(f.ty==="select") c = `<select id="${id}" data-k="${f.id}"><option value="">Choisir…</option>${f.o.map(o=>`<option>${o}</option>`).join("")}</select>`;
-  else if(f.ty==="area") c = `<textarea id="${id}" data-k="${f.id}"></textarea>`;
+  else if(f.ty==="area") c = `<textarea id="${id}" data-k="${f.id}" ${f.ph?`placeholder="${f.ph}"`:""}></textarea>`;
   else if(f.ty==="yn") return `<div class="fld" data-f="${f.id}"><span class="lab">${f.l}</span><div class="radios">${["Oui","Non"].map(v=>`<label><input type="radio" name="${f.id}" data-k="${f.id}" value="${v}">${v}</label>`).join("")}</div></div>`;
   else if(f.ty==="guide") return `<div class="fld full" data-f="guide"><button type="button" class="btn alt" id="guideBtn">Guide de rédaction</button><div id="guidePanel" class="guide hidden"></div></div>`;
   else if(f.ty==="imc") return `<div class="fld full" data-f="imc"><span class="lab">${f.l}</span><div class="imc" id="imcBox">Renseigner le poids et la taille dans les constantes du jour</div></div>`;
@@ -75,9 +75,14 @@ function fieldHTML(f){
 }
 
 function build(){
-  $("#nav").innerHTML = S.map((s,i)=>`<button data-go="${i}">${s.t}</button>`).join("")+`<button data-go="${S.length}">Les 14 besoins fondamentaux</button>`;
-  $("#form").innerHTML = S.map((s,i)=>`<fieldset data-s="${i}"><legend>${s.t}</legend><div class="grid">${s.f.map(fieldHTML).join("")}</div></fieldset>`).join("")
-    +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux</legend>${besoinsHTML()}</fieldset>`;
+  $("#nav").innerHTML = `<button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="menuPanel" aria-label="Ouvrir le menu de navigation"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
+    <nav id="menuPanel" class="menu-panel hidden" aria-label="Navigation principale">
+      <button type="button" class="menu-item menu-heading" data-go="general">RENSEIGNEMENTS GENERAUX</button>
+      <button type="button" class="menu-item menu-heading" data-go="${S.length}">DONNÉES SUR LES 14 BESOINS FONDAMENTAUX</button>
+    </nav>`;
+  $("#form").innerHTML = `<fieldset class="general-data"><legend>RENSEIGNEMENTS GENERAUX</legend><div class="general-sections">${S.map((s,i)=>
+    `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span></summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
+    +`<fieldset data-s="${S.length}"><legend>DONNÉES SUR LES 14 BESOINS FONDAMENTAUX</legend>${besoinsHTML()}</fieldset>`;
   $("#actions").innerHTML = `<span></span><button class="btn" id="save">Enregistrer</button>`;
   update();
 }
@@ -104,10 +109,9 @@ function calcIMC(){
 /* ===== GUIDE DE RÉDACTION : histoire de la maladie ===== */
 const GUIDE = [
   ["Mode de début","Quand les symptômes ont-ils commencé ? Début brutal ou progressif ? Dans quelles circonstances ?"],
-  ["Évolution des symptômes","Quels symptômes, dans quel ordre, avec quelle intensité ? Qu’est-ce qui les aggrave ou les soulage ?"],
-  ["Avant l’admission","Automédication, tradipraticien, poste de santé ? Quel traitement reçu, avec quel effet ?"],
+  ["Évolution des symptômes","Quels symptômes, dans quel ordre, avec quelle intensité ?"],
   ["Admission","Pourquoi consulter à ce moment-là ? Quel était l’état du patient à l’entrée ?"],
-  ["Depuis l’hospitalisation","Amélioration ou aggravation ? Examens réalisés, traitements instaurés ?"]
+  ["Depuis l’hospitalisation","Amélioration ou aggravation ?"]
 ];
 let insTexts = [];
 const TODO = "[à compléter]";
@@ -210,8 +214,33 @@ document.addEventListener("input",e=>{
   update();
 });
 document.addEventListener("click",e=>{
-  const t=e.target;
-  if(t.dataset.go!==undefined) document.querySelector(`fieldset[data-s="${t.dataset.go}"]`).scrollIntoView({behavior:"smooth"});
+  const menuToggle=e.target.closest("#menuToggle");
+  if(menuToggle){
+    const open=menuToggle.getAttribute("aria-expanded")!=="true";
+    $("#menuPanel").classList.toggle("hidden",!open);
+    menuToggle.setAttribute("aria-expanded",String(open));
+    menuToggle.setAttribute("aria-label",open?"Fermer le menu de navigation":"Ouvrir le menu de navigation");
+    return;
+  }
+  if(!e.target.closest("#nav")){
+    $("#menuPanel").classList.add("hidden");
+    $("#menuToggle").setAttribute("aria-expanded","false");
+    $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
+  }
+  const t=e.target.closest("button");
+  if(!t) return;
+  if(t.dataset.go!==undefined){
+    const section=t.dataset.go==="general"
+      ? $(".general-data")
+      : +t.dataset.go<S.length
+        ? document.querySelector(`.section-details[data-s="${t.dataset.go}"]`)
+        : document.querySelector(`fieldset[data-s="${t.dataset.go}"]`);
+    if(section.matches(".section-details")) section.open=true;
+    section.scrollIntoView({behavior:"smooth"});
+    $("#menuPanel").classList.add("hidden");
+    $("#menuToggle").setAttribute("aria-expanded","false");
+    $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
+  }
   else if(t.id==="guideBtn"){ $("#guidePanel").classList.toggle("hidden"); renderGuide(); }
   else if(t.dataset.ins!==undefined) insertText(insTexts[+t.dataset.ins]);
   else if(t.id==="save") save();
