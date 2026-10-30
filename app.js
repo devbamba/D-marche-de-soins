@@ -77,12 +77,21 @@ function fieldHTML(f){
 function build(){
   $("#nav").innerHTML = `<button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="menuPanel" aria-label="Ouvrir le menu de navigation"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
     <nav id="menuPanel" class="menu-panel hidden" aria-label="Navigation principale">
-      <button type="button" class="menu-item menu-heading" data-go="general">RENSEIGNEMENTS GENERAUX</button>
-      <button type="button" class="menu-item menu-heading" data-go="${S.length}">DONNÉES SUR LES 14 BESOINS FONDAMENTAUX</button>
+      <button type="button" class="menu-item menu-heading" data-go="general">Renseignements généraux</button>
+      <button type="button" class="menu-item menu-heading" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>
+      <button type="button" class="menu-item menu-heading" data-go="documentation">Documentation</button>
     </nav>`;
-  $("#form").innerHTML = `<fieldset class="general-data"><legend>RENSEIGNEMENTS GENERAUX</legend><div class="general-sections">${S.map((s,i)=>
+  $("#form").innerHTML = `<fieldset class="general-data"><legend>Renseignements généraux</legend><div class="general-sections">${S.map((s,i)=>
     `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span></summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
-    +`<fieldset data-s="${S.length}"><legend>DONNÉES SUR LES 14 BESOINS FONDAMENTAUX</legend>${besoinsHTML()}</fieldset>`;
+    +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux</legend>${besoinsHTML()}</fieldset>`
+    +`<fieldset id="documentation"><legend>Documentation</legend><div class="documentation-content">
+      <p>Utilisez les rubriques pour recueillir les informations du patient. Cliquez sur un titre pour afficher ou masquer son contenu.</p>
+      <ul>
+        <li>Les champs marqués d’un astérisque (*) sont obligatoires.</li>
+        <li>Dans « Données sur les 14 besoins fondamentaux », renseignez les observations et les informations du dossier pour chaque aspect : biologique, psychologique et sociologique.</li>
+        <li>Le bouton « Enregistrer » affiche les données saisies.</li>
+      </ul>
+    </div></fieldset>`;
   $("#actions").innerHTML = `<span></span><button class="btn" id="save">Enregistrer</button>`;
   update();
 }
@@ -192,7 +201,7 @@ const HINTS = {
 };
 function besoinsHTML(){
   return BESOINS.map(([id,t],i)=>
-    `<details class="bes" ${i===0?"open":""}><summary><span>${i+1}. ${t}</span><em class="cnt" data-cnt="${id}">0/6</em></summary>`+
+    `<details class="bes"><summary><span>${i+1}. ${t}</span><em class="cnt" data-cnt="${id}">0/6</em></summary>`+
     `<div class="bt"><div class="bh"><span>Aspect</span>${COLS.map(c=>`<span>${c[1]}</span>`).join("")}</div>`+
     ASPECTS.map((a,ai)=>`<div class="br"><div class="asp"><b>${a[1]}</b><small>${HINTS[id][ai]}</small></div>`+
       COLS.map(c=>`<div class="bc"><span class="cap">${c[1]}</span><textarea data-k="${id}_${a[0]}_${c[0]}" aria-label="${t} : ${a[1]} : ${c[1]}"></textarea></div>`).join("")+
@@ -232,6 +241,8 @@ document.addEventListener("click",e=>{
   if(t.dataset.go!==undefined){
     const section=t.dataset.go==="general"
       ? $(".general-data")
+      : t.dataset.go==="documentation"
+        ? $("#documentation")
       : +t.dataset.go<S.length
         ? document.querySelector(`.section-details[data-s="${t.dataset.go}"]`)
         : document.querySelector(`fieldset[data-s="${t.dataset.go}"]`);
