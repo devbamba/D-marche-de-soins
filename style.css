@@ -34,3 +34,21 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
 .sug{padding:8px 0;border-bottom:1px solid var(--line)}
 .sug p{margin:4px 0 8px;color:var(--mute);font-size:.92rem}
 .sug .btn{padding:6px 12px;font-size:.85rem}
+.bes{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:var(--bg)}
+.bes summary{cursor:pointer;padding:11px 12px;display:flex;justify-content:space-between;gap:10px;font-weight:600;list-style:none}
+.bes summary::-webkit-details-marker{display:none}
+.bes summary span::before{content:"▸ ";color:var(--acc)}
+.bes[open] summary span::before{content:"▾ "}
+.cnt{font-style:normal;font-size:.8rem;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:12px;padding:1px 9px;white-space:nowrap;align-self:center}
+.cnt.done{color:var(--ok);border-color:var(--ok)}
+.bt{padding:0 12px 12px}
+.bh,.br{display:grid;grid-template-columns:150px 1fr 1fr;gap:8px}
+.bh{font-size:.8rem;color:var(--mute);padding-bottom:6px}
+.br{padding:6px 0;border-top:1px solid var(--line)}
+.br b{font-size:.9rem;padding-top:8px}
+.bc textarea{min-height:70px}
+.cap{display:none;font-size:.78rem;color:var(--mute);margin-bottom:3px}
+@media (max-width:700px){.bh{display:none}.br{grid-template-columns:1fr}.cap{display:block}}
+.asp{padding-top:8px}
+.asp b{display:block;padding-top:0}
+.asp small{display:block;color:var(--mute);font-size:.75rem;line-height:1.35;margin-top:3px}

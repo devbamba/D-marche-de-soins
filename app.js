@@ -75,8 +75,9 @@ function fieldHTML(f){
 }
 
 function build(){
-  $("#nav").innerHTML = S.map((s,i)=>`<button data-go="${i}">${s.t}</button>`).join("");
-  $("#form").innerHTML = S.map((s,i)=>`<fieldset data-s="${i}"><legend>${s.t}</legend><div class="grid">${s.f.map(fieldHTML).join("")}</div></fieldset>`).join("");
+  $("#nav").innerHTML = S.map((s,i)=>`<button data-go="${i}">${s.t}</button>`).join("")+`<button data-go="${S.length}">Les 14 besoins fondamentaux</button>`;
+  $("#form").innerHTML = S.map((s,i)=>`<fieldset data-s="${i}"><legend>${s.t}</legend><div class="grid">${s.f.map(fieldHTML).join("")}</div></fieldset>`).join("")
+    +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux</legend>${besoinsHTML()}</fieldset>`;
   $("#actions").innerHTML = `<span></span><button class="btn" id="save">Enregistrer</button>`;
   update();
 }
@@ -87,6 +88,7 @@ function update(){
   }));
   calcIMC();
   renderGuide();
+  updateBesoins();
 }
 function calcIMC(){
   const box=$("#imcBox"); if(!box) return;
@@ -142,6 +144,63 @@ function insertText(t){
   const el = $("#f_histoire"); if(!el) return;
   el.value = el.value.trim() ? el.value.trim()+"\n\n"+t : t;
   data.histoire = el.value; el.classList.remove("bad"); el.focus();
+}
+
+
+/* ===== 14 BESOINS FONDAMENTAUX : même tableau pour chaque besoin ===== */
+const BESOINS = [
+  ["respirer","Respirer"],
+  ["boire_manger","Boire et manger"],
+  ["eliminer","Éliminer les déchets"],
+  ["mouvoir","Se mouvoir et maintenir une bonne posture"],
+  ["dormir","Dormir et se reposer"],
+  ["vetir","Se vêtir et se dévêtir"],
+  ["temperature","Maintenir la température du corps dans les limites de la normale"],
+  ["hygiene","Être propre et protéger ses téguments"],
+  ["dangers","Éviter les dangers"],
+  ["communiquer","Communiquer avec ses semblables"],
+  ["croyances","Agir selon ses croyances et ses valeurs"],
+  ["occuper","S’occuper en vue de se réaliser"],
+  ["recreer","Se récréer"],
+  ["apprendre","Apprendre"]
+];
+const ASPECTS = [["bio","Biologique"],["psy","Psychologique"],["socio","Sociologique"]];
+const COLS = [
+  ["obs","Ce que l’on observe et ce que le client ou l’accompagnant dit"],
+  ["dos","Ce que l’on lit dans le dossier médical et ce que les autres membres de l’équipe disent"]
+];
+/* Pistes d’observation : [biologique, psychologique, sociologique] */
+const HINTS = {
+  respirer:["Fréquence et rythme respiratoires, SpO₂, toux, expectorations, dyspnée, cyanose, tirage, oxygénothérapie","Anxiété, sensation d’étouffement, peur de manquer d’air","Tabagisme, exposition à la fumée ou à la poussière, aération du logement et du lieu de travail"],
+  boire_manger:["Appétit, quantité mangée et bue, mastication, déglutition, nausées, vomissements, état de la bouche, poids, régime prescrit","Plaisir de manger, refus ou compulsion, dégoût, stress lié à l’alimentation","Habitudes et interdits alimentaires, moyens pour s’alimenter, repas seul ou en famille, aide pour manger"],
+  eliminer:["Urines (quantité, aspect), selles (fréquence, aspect), constipation, diarrhée, sueurs, sonde urinaire, couche, vomissements","Gêne, pudeur ou honte liées à la sonde, à la couche ou à l’incontinence","Accès aux toilettes, intimité, aide nécessaire pour éliminer"],
+  mouvoir:["Mobilité, force musculaire, équilibre, douleur, alitement, posture, aides techniques (canne, fauteuil), risque de chute","Motivation à bouger, peur de tomber ou d’avoir mal","Activité physique habituelle, postures et efforts liés au travail, aide de l’entourage pour se déplacer"],
+  dormir:["Durée et qualité du sommeil, réveils nocturnes, somnolence, douleur ou toux gênant le sommeil, traitement sédatif","Anxiété, ruminations, cauchemars, fatigue ressentie","Bruit, lumière, partage de la chambre, rythme de travail, habitudes de sommeil"],
+  vetir:["Capacité à s’habiller seul, dextérité, tenue adaptée à la température, vêtements propres, perfusion ou sonde gênant l’habillage","Image de soi, pudeur, souci de l’apparence","Habitudes vestimentaires, tenue liée à la religion ou à la culture, moyens de se vêtir"],
+  temperature:["Température, frissons, sueurs, peau chaude ou froide, fièvre, vêtements et couvertures, signes de déshydratation","Sensation de chaud ou de froid, inconfort, inquiétude liée à la fièvre","Chaleur et ventilation de l’environnement, literie disponible, habitudes face à la fièvre"],
+  hygiene:["État de la peau (plaies, escarres, rougeurs, œdèmes), hygiène corporelle et buccale, cheveux, ongles, odeurs, autonomie pour la toilette","Image du corps, souci de propreté, pudeur","Habitudes d’hygiène, accès à l’eau et au savon, aide pour la toilette"],
+  dangers:["État de conscience, orientation, douleur, risque de chute, risque infectieux (sonde, voie veineuse), allergies, traitements à risque","Peur, agitation, confusion, anxiété, confiance envers l’équipe","Environnement sûr, présence de l’entourage, alcool et tabac, connaissance des risques"],
+  communiquer:["Vue, audition, élocution, langage, orientation, état de conscience, expression non verbale","Humeur, émotions exprimées, repli, agressivité, estime de soi, besoin de parler","Langue parlée, entourage et visites, relations avec les soignants, rôle dans la famille"],
+  croyances:["Capacité physique à pratiquer sa religion (prier, se déplacer)","Foi, sens donné à la maladie, espoir, angoisse, besoin de soutien spirituel","Religion, pratiques et interdits, visite d’un guide religieux, recours aux soins traditionnels"],
+  occuper:["Capacité physique à travailler ou à avoir une activité, fatigue, énergie","Sentiment d’utilité, estime de soi, inquiétude pour le travail et la famille, motivation","Profession, rôle dans la famille, revenus, effet de la maladie sur le travail"],
+  recreer:["Énergie et capacité physique pour les loisirs","Ennui, plaisir, humeur, intérêt pour les activités, moral","Loisirs habituels, vie sociale, visites, accès à la radio, à la télévision, au téléphone"],
+  apprendre:["Concentration, mémoire, vue, audition, niveau de conscience, fatigue limitant l’apprentissage","Motivation, compréhension de la maladie, anxiété, ouverture à l’éducation","Niveau d’instruction, langue, connaissances sur la maladie et le traitement, rôle de l’entourage"]
+};
+function besoinsHTML(){
+  return BESOINS.map(([id,t],i)=>
+    `<details class="bes" ${i===0?"open":""}><summary><span>${i+1}. ${t}</span><em class="cnt" data-cnt="${id}">0/6</em></summary>`+
+    `<div class="bt"><div class="bh"><span>Aspect</span>${COLS.map(c=>`<span>${c[1]}</span>`).join("")}</div>`+
+    ASPECTS.map((a,ai)=>`<div class="br"><div class="asp"><b>${a[1]}</b><small>${HINTS[id][ai]}</small></div>`+
+      COLS.map(c=>`<div class="bc"><span class="cap">${c[1]}</span><textarea data-k="${id}_${a[0]}_${c[0]}" aria-label="${t} : ${a[1]} : ${c[1]}"></textarea></div>`).join("")+
+    `</div>`).join("")+`</div></details>`).join("");
+}
+function updateBesoins(){
+  BESOINS.forEach(([id])=>{
+    let n=0;
+    ASPECTS.forEach(a=>COLS.forEach(c=>{ if((data[`${id}_${a[0]}_${c[0]}`]||"").trim()) n++; }));
+    const el=document.querySelector(`[data-cnt="${id}"]`);
+    if(el){ el.textContent=n+"/6"; el.classList.toggle("done",n>0); }
+  });
 }
 
 /* ===== 4. ÉVÉNEMENTS ===== */
