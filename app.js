@@ -85,12 +85,7 @@ function build(){
     `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span></summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
     +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux</legend>${besoinsHTML()}</fieldset>`
     +`<fieldset id="documentation"><legend>Documentation</legend><div class="documentation-content">
-      <p>Utilisez les rubriques pour recueillir les informations du patient. Cliquez sur un titre pour afficher ou masquer son contenu.</p>
-      <ul>
-        <li>Les champs marqués d’un astérisque (*) sont obligatoires.</li>
-        <li>Dans « Données sur les 14 besoins fondamentaux », renseignez les observations et les informations du dossier pour chaque aspect : biologique, psychologique et sociologique.</li>
-        <li>Le bouton « Enregistrer » affiche les données saisies.</li>
-      </ul>
+      Coming soooooooonnnnn.......
     </div></fieldset>`;
   $("#actions").innerHTML = `<span></span><button class="btn" id="save">Enregistrer</button>`;
   update();
