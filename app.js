@@ -60,6 +60,108 @@ const S = [
 /* ===== 2. ÉTAT ===== */
 const data = {};
 const $ = s => document.querySelector(s);
+const STORAGE_USERS = "demarcheSoins.demo.users.v1";
+const SESSION_USER = "demarcheSoins.demo.user";
+let currentUser = null;
+let currentRecordId = null;
+let authMode = "login";
+
+function readJSON(key, fallback){
+  const raw = localStorage.getItem(key);
+  return raw === null ? fallback : JSON.parse(raw);
+}
+function makeId(){
+  return crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
+}
+function bytesToBase64(bytes){
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)));
+}
+async function passwordHash(password,salt){
+  if(!crypto.subtle) throw new Error("Le navigateur ne permet pas le hachage sécurisé du mot de passe. Ouvrez l’application dans un navigateur récent via localhost.");
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);
+  const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:120000,hash:"SHA-256"},key,256);
+  return bytesToBase64(bits);
+}
+function recordsKey(){ return `demarcheSoins.demo.records.${currentUser.id}`; }
+function draftKey(){ return `demarcheSoins.demo.draft.${currentUser.id}`; }
+function readRecords(){ return readJSON(recordsKey(),[]); }
+function setAuthMessage(text){ $("#authMessage").textContent=text; }
+function setAppMessage(text){ $("#msg").textContent=text; }
+
+function setAuthMode(mode){
+  authMode=mode;
+  const registering=mode==="register";
+  $("#confirmPasswordField").classList.toggle("hidden",!registering);
+  $("#authPasswordConfirm").required=registering;
+  $("#authPassword").autocomplete=registering?"new-password":"current-password";
+  $("#authSubmit").textContent=registering?"Créer mon compte":"Se connecter";
+  $("#showLogin").classList.toggle("active",!registering);
+  $("#showRegister").classList.toggle("active",registering);
+  setAuthMessage("");
+}
+function activateAccount(user){
+  currentUser=user;
+  $("#authScreen").classList.add("hidden");
+  $("#appShell").classList.remove("hidden");
+  $("#accountLabel").textContent=user.email;
+  $("#authForm").reset();
+  setAppMessage("");
+  loadCurrentDraft();
+  try{ sessionStorage.setItem(SESSION_USER,user.id); }
+  catch(error){ setAppMessage(`Compte ouvert, mais la session ne peut pas être mémorisée : ${error instanceof Error?error.message:"stockage indisponible"}`); }
+}
+function signOut(){
+  sessionStorage.removeItem(SESSION_USER);
+  currentUser=null;
+  currentRecordId=null;
+  $("#appShell").classList.add("hidden");
+  $("#authScreen").classList.remove("hidden");
+  setAuthMode("login");
+  setAuthMessage("Vous êtes déconnecté(e).");
+}
+function initAuth(){
+  $("#showLogin").addEventListener("click",()=>setAuthMode("login"));
+  $("#showRegister").addEventListener("click",()=>setAuthMode("register"));
+  $("#authForm").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const email=$("#authEmail").value.trim().toLowerCase();
+    const password=$("#authPassword").value;
+    setAuthMessage("");
+    try{
+      const users=readJSON(STORAGE_USERS,[]);
+      if(!Array.isArray(users)) throw new Error("Les comptes locaux sont illisibles. Les données du navigateur ont peut-être été modifiées.");
+      if(authMode==="register"){
+        if(password.length<8){ setAuthMessage("Choisissez un mot de passe d’au moins 8 caractères."); return; }
+        if(password!==$("#authPasswordConfirm").value){ setAuthMessage("Les mots de passe ne correspondent pas."); return; }
+        if(users.some(u=>u.email===email)){ setAuthMessage("Un compte existe déjà avec cette adresse e-mail."); return; }
+        const salt=crypto.getRandomValues(new Uint8Array(16));
+        const user={id:makeId(),email,salt:bytesToBase64(salt),passwordHash:await passwordHash(password,salt)};
+        users.push(user);
+        localStorage.setItem(STORAGE_USERS,JSON.stringify(users));
+        activateAccount(user);
+      }else{
+        const user=users.find(u=>u.email===email);
+        if(!user){ setAuthMessage("Adresse e-mail ou mot de passe incorrect."); return; }
+        const computed=await passwordHash(password,Uint8Array.from(atob(user.salt),c=>c.charCodeAt(0)));
+        if(computed!==user.passwordHash){ setAuthMessage("Adresse e-mail ou mot de passe incorrect."); return; }
+        activateAccount(user);
+      }
+    }catch(error){
+      setAuthMessage(error instanceof Error ? error.message : "Impossible d’accéder aux comptes dans ce navigateur.");
+    }
+  });
+  $("#logout").addEventListener("click",signOut);
+  const sessionId=sessionStorage.getItem(SESSION_USER);
+  if(sessionId){
+    try{
+      const user=readJSON(STORAGE_USERS,[]).find(u=>u.id===sessionId);
+      if(user){ activateAccount(user); return; }
+      sessionStorage.removeItem(SESSION_USER);
+    }catch(error){
+      setAuthMessage(error instanceof Error ? error.message : "Impossible de lire le compte local.");
+    }
+  }
+}
 
 /* ===== 3. AFFICHAGE ===== */
 function fieldHTML(f){
@@ -86,7 +188,7 @@ function build(){
     +`<fieldset id="documentation"><legend>Documentation</legend><div class="documentation-content">
       Coming soooooooonnnnn.......
     </div></fieldset>`;
-  $("#actions").innerHTML = `<span></span><button class="btn" id="save">Enregistrer</button>`;
+  $("#actions").innerHTML = `<button type="button" class="btn alt" id="exportPdf">Exporter le dossier en PDF</button><button type="button" class="btn" id="save">Enregistrer le dossier</button>`;
   update();
 }
 function update(){
@@ -209,14 +311,211 @@ function updateBesoins(){
     if(el){ el.textContent=n+"/6"; el.classList.toggle("done",n>0); }
   });
 }
+function refreshRecords(){
+  const list=$("#recordsList");
+  list.replaceChildren();
+  const records=readRecords();
+  if(!Array.isArray(records)) throw new Error("La liste des dossiers locaux est illisible.");
+  if(!records.length){
+    const empty=document.createElement("p");
+    empty.className="empty-records";
+    empty.textContent="Aucun dossier enregistré pour le moment.";
+    list.append(empty);
+    return;
+  }
+  records.sort((a,b)=>b.savedAt.localeCompare(a.savedAt)).forEach(record=>{
+    const row=document.createElement("div");
+    row.className="record-row";
+    const info=document.createElement("div");
+    info.className="record-info";
+    const title=document.createElement("strong");
+    title.textContent=record.title;
+    const date=document.createElement("small");
+    date.textContent=`Enregistré le ${new Date(record.savedAt).toLocaleString("fr-FR")}`;
+    info.append(title,date);
+    const controls=document.createElement("div");
+    controls.className="record-actions";
+    [["open","Ouvrir"],["pdf","PDF"],["delete","Supprimer"]].forEach(([action,label])=>{
+      const button=document.createElement("button");
+      button.type="button";
+      button.className="btn alt";
+      button.dataset.recordAction=action;
+      button.dataset.recordId=record.id;
+      button.textContent=label;
+      controls.append(button);
+    });
+    row.append(info,controls);
+    list.append(row);
+  });
+}
+function saveDraft(){
+  if(!currentUser) return;
+  try{
+    const hasData=Object.keys(data).length>0;
+    if(!hasData&&!currentRecordId){
+      localStorage.removeItem(draftKey());
+      return;
+    }
+    localStorage.setItem(draftKey(),JSON.stringify({recordId:currentRecordId,data:{...data}}));
+    setAppMessage("Brouillon sauvegardé automatiquement dans ce navigateur.");
+  }catch(error){
+    setAppMessage(`Erreur lors de la sauvegarde locale : ${error instanceof Error?error.message:"espace de stockage indisponible"}`);
+  }
+}
+function loadCurrentDraft(){
+  try{
+    const draft=readJSON(draftKey(),null);
+    if(draft&&draft.data&&typeof draft.data==="object") loadIntoForm(draft.data,draft.recordId||null);
+    else loadIntoForm({},null);
+    refreshRecords();
+  }catch(error){
+    setAppMessage(`Impossible de charger les dossiers locaux : ${error instanceof Error?error.message:"données illisibles"}`);
+  }
+}
+function loadIntoForm(values,recordId){
+  Object.keys(data).forEach(key=>delete data[key]);
+  Object.assign(data,values);
+  currentRecordId=recordId;
+  $("#form").querySelectorAll("[data-k]").forEach(input=>{
+    const value=data[input.dataset.k]||"";
+    if(input.type==="radio") input.checked=input.value===value;
+    else input.value=value;
+    input.classList.remove("bad");
+  });
+  document.querySelectorAll(".section-details, .bes").forEach(details=>{ details.open=false; });
+  $("#out").classList.add("hidden");
+  setAppMessage("");
+  update();
+}
+function startNewRecord(){
+  loadIntoForm({},null);
+  try{ localStorage.removeItem(draftKey()); }
+  catch(error){ setAppMessage(`Impossible d’effacer le brouillon : ${error instanceof Error?error.message:"stockage indisponible"}`); }
+  $("#form").scrollIntoView({behavior:"smooth"});
+}
+function openSavedRecord(id){
+  try{
+    const record=readRecords().find(item=>item.id===id);
+    if(!record) throw new Error("Ce dossier n’existe plus dans le stockage local.");
+    loadIntoForm(record.data,record.id);
+    saveDraft();
+    $("#form").scrollIntoView({behavior:"smooth"});
+  }catch(error){
+    setAppMessage(`Impossible d’ouvrir le dossier : ${error instanceof Error?error.message:"données illisibles"}`);
+  }
+}
+function deleteSavedRecord(id){
+  if(!window.confirm("Supprimer définitivement ce dossier de ce navigateur ?")) return;
+  try{
+    const records=readRecords().filter(record=>record.id!==id);
+    localStorage.setItem(recordsKey(),JSON.stringify(records));
+    if(currentRecordId===id) startNewRecord();
+    refreshRecords();
+    setAppMessage("Dossier supprimé de ce navigateur.");
+  }catch(error){
+    setAppMessage(`Impossible de supprimer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
+  }
+}
+function addReportSection(report,title,entries){
+  const section=document.createElement("section");
+  section.className="report-section";
+  const heading=document.createElement("h2");
+  heading.textContent=title;
+  section.append(heading);
+  if(!entries.length){
+    const empty=document.createElement("p");
+    empty.textContent="Aucune donnée renseignée.";
+    section.append(empty);
+  }else{
+    const table=document.createElement("table");
+    entries.forEach(([label,value])=>{
+      const row=document.createElement("tr");
+      const name=document.createElement("th");
+      name.scope="row";
+      name.textContent=label;
+      const content=document.createElement("td");
+      content.textContent=value;
+      row.append(name,content);
+      table.append(row);
+    });
+    section.append(table);
+  }
+  report.append(section);
+}
+function showReportPreview(values){
+  const report=$("#printReport");
+  report.replaceChildren();
+  const title=document.createElement("h1");
+  title.textContent="Démarche de soins — Dossier patient";
+  report.append(title);
+  const generated=document.createElement("p");
+  generated.className="report-date";
+  generated.textContent=`Document généré le ${new Date().toLocaleString("fr-FR")} — Démonstration avec données fictives`;
+  report.append(generated);
+  S.forEach(section=>{
+    const entries=section.f.filter(field=>field.ty!=="guide").map(field=>[
+      field.l,
+      String(field.ty==="imc"?(values.imc||""):(values[field.id]||""))
+    ]).filter(([,value])=>value);
+    addReportSection(report,section.t,entries);
+  });
+  BESOINS.forEach(([id,label],index)=>{
+    const entries=[];
+    ASPECTS.forEach(aspect=>COLS.forEach(column=>{
+      const value=values[`${id}_${aspect[0]}_${column[0]}`];
+      if(value) entries.push([`${aspect[1]} — ${column[1]}`,value]);
+    }));
+    addReportSection(report,`${index+1}. ${label}`,entries);
+  });
+  $("#pdfPreview").classList.remove("hidden");
+  $("#pdfPreview").scrollIntoView({behavior:"smooth"});
+}
+function printReport(){
+  const previousTitle=document.title;
+  const heading=$("#printReport h1").textContent;
+  document.title=`Démarche de soins - ${heading}`;
+  window.addEventListener("afterprint",()=>{ document.title=previousTitle; },{once:true});
+  window.print();
+}
+function closeReportPreview(){
+  $("#pdfPreview").classList.add("hidden");
+  $("#actions").scrollIntoView({behavior:"smooth"});
+}
 
 /* ===== 4. ÉVÉNEMENTS ===== */
 document.addEventListener("input",e=>{
   const k=e.target.dataset&&e.target.dataset.k; if(!k) return;
   data[k]=e.target.value; e.target.classList.remove("bad");
   update();
+  saveDraft();
 });
 document.addEventListener("click",e=>{
+  const recordButton=e.target.closest("[data-record-action]");
+  if(recordButton){
+    if(recordButton.dataset.recordAction==="open") openSavedRecord(recordButton.dataset.recordId);
+    else if(recordButton.dataset.recordAction==="pdf"){
+      try{
+        const record=readRecords().find(item=>item.id===recordButton.dataset.recordId);
+        if(record) showReportPreview(record.data);
+        else setAppMessage("Ce dossier n’existe plus dans le stockage local.");
+      }catch(error){
+        setAppMessage(`Impossible de lire le dossier : ${error instanceof Error?error.message:"données illisibles"}`);
+      }
+    }
+    else if(recordButton.dataset.recordAction==="delete") deleteSavedRecord(recordButton.dataset.recordId);
+    return;
+  }
+  if(e.target.closest("#newRecord")){
+    if(Object.keys(data).length&&!window.confirm("Commencer un nouveau dossier ? Le brouillon actuel sera effacé, mais les dossiers déjà enregistrés resteront disponibles.")) return;
+    startNewRecord();
+    return;
+  }
+  if(e.target.closest("#exportPdf")){
+    if(validateData()) showReportPreview({...data});
+    return;
+  }
+  if(e.target.closest("#closePreview")){ closeReportPreview(); return; }
+  if(e.target.closest("#savePreviewPdf")||e.target.closest("#printPreview")){ printReport(); return; }
   const menuToggle=e.target.closest("#menuToggle");
   if(menuToggle){
     const open=menuToggle.getAttribute("aria-expanded")!=="true";
@@ -251,17 +550,45 @@ document.addEventListener("click",e=>{
   else if(t.id==="save") save();
 });
 
-function save(){
+function validateData(){
   const missing=[];
   S.forEach(s=>s.f.forEach(f=>{ if(f.req && !data[f.id]) missing.push(f); }));
   document.querySelectorAll(".bad").forEach(n=>n.classList.remove("bad"));
   if(missing.length){
     missing.forEach(f=>{const el=document.getElementById("f_"+f.id); el&&el.classList.add("bad");});
     $("#msg").textContent="Champs obligatoires manquants : "+missing.map(f=>f.l).join(", ")+".";
-    return;
+    const firstField=missing[0];
+    const section=S.findIndex(section=>section.f.includes(firstField));
+    if(section>=0){
+      const details=document.querySelector(`.section-details[data-s="${section}"]`);
+      details.open=true;
+      details.scrollIntoView({behavior:"smooth"});
+      document.getElementById("f_"+firstField.id).focus();
+    }
+    return false;
   }
-  $("#msg").textContent="";
-  const out=$("#out"); out.classList.remove("hidden"); out.textContent=JSON.stringify(data,null,2);
-  out.scrollIntoView({behavior:"smooth"});
+  return true;
+}
+function save(){
+  if(!currentUser){ setAppMessage("Connectez-vous pour enregistrer un dossier."); return; }
+  if(!validateData()) return;
+  try{
+    const records=readRecords();
+    if(!Array.isArray(records)) throw new Error("La liste des dossiers locaux est illisible.");
+    const savedAt=new Date().toISOString();
+    const title=[data.prenom,data.nom].filter(Boolean).join(" ")||"Dossier sans nom";
+    const existingIndex=records.findIndex(record=>record.id===currentRecordId);
+    const record={id:currentRecordId||makeId(),title,data:{...data},savedAt};
+    if(existingIndex>=0) records[existingIndex]=record;
+    else records.push(record);
+    localStorage.setItem(recordsKey(),JSON.stringify(records));
+    currentRecordId=record.id;
+    localStorage.setItem(draftKey(),JSON.stringify({recordId:currentRecordId,data:{...data}}));
+    refreshRecords();
+    setAppMessage("Dossier enregistré dans ce navigateur.");
+  }catch(error){
+    setAppMessage(`Impossible d’enregistrer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
+  }
 }
 build();
+initAuth();

@@ -3,6 +3,41 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
 .wrap{max-width:760px;margin:0 auto;padding:20px 16px 80px}
+.auth-screen{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.auth-card{width:min(100%,480px);padding:24px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.auth-card h1{margin-bottom:16px}
+.auth-hint{margin:0 0 14px;color:var(--mute);font-size:.9rem}
+.auth-card form{display:grid;gap:14px}
+.auth-card form .btn{justify-self:start}
+.auth-tabs{display:flex;gap:8px;margin-bottom:16px}
+.auth-tabs .active{background:var(--acc);color:var(--acc-ink)}
+.demo-warning{padding:10px 12px;border-left:4px solid var(--warn);border-radius:4px;background:var(--soft);font-size:.88rem}
+.demo-warning.compact{margin:8px 0;font-size:.8rem}
+.account-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 16px;color:var(--mute);font-size:.9rem}
+.records-panel{margin-bottom:18px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.records-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.records-heading h2{margin:0;font-size:1.05rem}
+.records-panel .btn{padding:7px 11px;font-size:.85rem}
+.record-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.record-info,.record-actions{display:flex;align-items:center;gap:8px}
+.record-info{flex-direction:column;align-items:flex-start}
+.record-info small,.empty-records{color:var(--mute);font-size:.82rem}
+.record-actions{flex-wrap:wrap}
+.print-report{display:none}
+.pdf-preview{margin:20px 0;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.pdf-preview-toolbar{margin-bottom:16px}
+.pdf-preview-toolbar h2{margin:0 0 4px;font-size:1.15rem}
+.pdf-preview-toolbar p{margin:0 0 10px;color:var(--mute);font-size:.9rem}
+.pdf-preview-actions{display:flex;flex-wrap:wrap;gap:8px}
+.pdf-preview-actions .btn{padding:8px 12px;font-size:.88rem}
+.pdf-save-hint{margin:10px 0 0!important;font-size:.82rem!important}
+.pdf-preview .print-report{display:block;max-width:100%;padding:20px;background:#fff;color:#111;border:1px solid var(--line);box-shadow:0 2px 12px #00000012;font:11pt/1.45 Arial,sans-serif}
+.pdf-preview .print-report h1{font-size:18pt;margin:0 0 6pt}
+.pdf-preview .print-report h2{font-size:13pt;margin:12pt 0 5pt;padding-bottom:3pt;border-bottom:1px solid #888}
+.pdf-preview .report-date{font-size:9pt;color:#444}
+.pdf-preview .print-report table{width:100%;border-collapse:collapse}
+.pdf-preview .print-report th,.pdf-preview .print-report td{padding:5pt 6pt;border:1px solid #ccc;text-align:left;vertical-align:top;white-space:pre-wrap}
+.pdf-preview .print-report th{width:32%;background:#f2f2f2}
 h1{font-size:1.4rem;margin:0 0 4px}
 .sub{color:var(--mute);margin:0 0 16px}
 .nav{margin:0 0 16px}
@@ -75,6 +110,26 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
 .top h1{margin:0;font-size:1.3rem;color:#fff}
 .top .sub{margin:2px 0 0;color:#e3f6f8}
 @media (prefers-reduced-motion:reduce){.menu-icon span{transition:none}}
+@media (max-width:560px){
+  .record-row{align-items:flex-start;flex-direction:column}
+  .records-heading{align-items:flex-start;flex-direction:column}
+  .pdf-preview .print-report{padding:12px}
+}
+@media print{
+  @page{margin:16mm}
+  body,body *{visibility:hidden!important}
+  #printReport,#printReport *{visibility:visible!important}
+  #printReport{display:block!important;position:absolute;inset:0 auto auto 0;width:100%;max-width:none;padding:0;border:0;box-shadow:none;color:#111;background:#fff;font:11pt/1.4 Arial,sans-serif}
+  .pdf-preview-toolbar{display:none!important}
+  #printReport h1{font-size:18pt;margin:0 0 6pt}
+  #printReport h2{font-size:13pt;margin:12pt 0 5pt;padding-bottom:3pt;border-bottom:1px solid #888;break-after:avoid}
+  #printReport .report-date{font-size:9pt;color:#444}
+  #printReport table{width:100%;border-collapse:collapse;break-inside:auto}
+  #printReport tr{break-inside:avoid}
+  #printReport th,#printReport td{padding:4pt 6pt;border:1px solid #ccc;text-align:left;vertical-align:top;white-space:pre-wrap}
+  #printReport th{width:32%;background:#f2f2f2}
+  #printReport .report-section{break-inside:auto}
+}
 fieldset{border-left:4px solid var(--acc)}
 legend{color:var(--acc)}
 .nav button:hover{background:var(--soft);border-color:var(--acc)}
