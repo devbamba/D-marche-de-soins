@@ -11,8 +11,9 @@
   <header class="top">
     <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#fff"/><path d="M6 25h10l4-11 7 22 5-15 3 4h7" fill="none" stroke="#0b7a9e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <div><h1>Démarche de soins</h1></div>
-    <div id="nav" class="nav"></div>
+    <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="nav" aria-label="Ouvrir le menu de navigation"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
   </header>
+  <nav id="nav" class="nav hidden" aria-label="Navigation principale"></nav>
   <div id="form"></div>
   <div id="msg" class="msg" role="alert"></div>
   <div class="actions" id="actions"></div>

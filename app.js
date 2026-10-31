@@ -75,12 +75,11 @@ function fieldHTML(f){
 }
 
 function build(){
-  $("#nav").innerHTML = `<button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="menuPanel" aria-label="Ouvrir le menu de navigation"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
-    <nav id="menuPanel" class="menu-panel hidden" aria-label="Navigation principale">
+  $("#nav").innerHTML = `<div class="menu-panel">
       <button type="button" class="menu-item menu-heading" data-go="general">Renseignements généraux</button>
       <button type="button" class="menu-item menu-heading" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>
       <button type="button" class="menu-item menu-heading" data-go="documentation">Documentation</button>
-    </nav>`;
+    </div>`;
   $("#form").innerHTML = `<fieldset class="general-data"><legend>Renseignements généraux</legend><div class="general-sections">${S.map((s,i)=>
     `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span></summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
     +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux</legend>${besoinsHTML()}</fieldset>`
@@ -221,13 +220,13 @@ document.addEventListener("click",e=>{
   const menuToggle=e.target.closest("#menuToggle");
   if(menuToggle){
     const open=menuToggle.getAttribute("aria-expanded")!=="true";
-    $("#menuPanel").classList.toggle("hidden",!open);
+    $("#nav").classList.toggle("hidden",!open);
     menuToggle.setAttribute("aria-expanded",String(open));
     menuToggle.setAttribute("aria-label",open?"Fermer le menu de navigation":"Ouvrir le menu de navigation");
     return;
   }
   if(!e.target.closest("#nav")){
-    $("#menuPanel").classList.add("hidden");
+    $("#nav").classList.add("hidden");
     $("#menuToggle").setAttribute("aria-expanded","false");
     $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
   }
@@ -243,7 +242,7 @@ document.addEventListener("click",e=>{
         : document.querySelector(`fieldset[data-s="${t.dataset.go}"]`);
     if(section.matches(".section-details")) section.open=true;
     section.scrollIntoView({behavior:"smooth"});
-    $("#menuPanel").classList.add("hidden");
+    $("#nav").classList.add("hidden");
     $("#menuToggle").setAttribute("aria-expanded","false");
     $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
   }
