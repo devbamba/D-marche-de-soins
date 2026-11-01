@@ -19,11 +19,17 @@
       <h2 id="recordsHeading">Dossiers enregistrés</h2>
       <button type="button" class="btn alt" id="newRecord">Nouveau dossier</button>
     </div>
+    <div class="records-tools">
+      <button type="button" class="btn alt" id="exportRecords">Sauvegarder (JSON)</button>
+      <button type="button" class="btn alt" id="importRecords">Restaurer</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="hidden" aria-label="Choisir un fichier de sauvegarde">
+    </div>
     <p class="demo-warning compact">Stockage local à ce navigateur : les dossiers ne sont pas synchronisés et peuvent être effacés en supprimant les données du navigateur.</p>
     <div id="recordsList"></div>
   </section>
   <div id="form"></div>
   <div id="msg" class="msg" role="alert"></div>
+  <div id="status" class="status" role="status"></div>
   <div class="actions" id="actions"></div>
   <pre id="out" class="hidden"></pre>
   <section id="pdfPreview" class="pdf-preview hidden" aria-labelledby="pdfPreviewHeading">

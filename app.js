@@ -74,7 +74,12 @@ function makeId(){
 function recordsKey(){ return RECORDS_KEY; }
 function draftKey(){ return DRAFT_KEY; }
 function readRecords(){ return readJSON(recordsKey(),[]); }
-function setAppMessage(text){ $("#msg").textContent=text; }
+function setAppMessage(text,ok=false,kind=""){
+  const m=$("#msg");
+  m.textContent=text;
+  m.classList.toggle("ok",ok&&!!text);
+  if(kind) m.dataset.kind=kind; else delete m.dataset.kind;
+}
 function migrateActiveAccountData(){
   const userId=sessionStorage.getItem("demarcheSoins.demo.user");
   if(!userId) return;
@@ -105,17 +110,37 @@ function fieldHTML(f){
 
 function build(){
   $("#nav").innerHTML = `<div class="menu-panel">
-      <button type="button" class="menu-item menu-heading" data-go="general">Renseignements généraux</button>
-      <button type="button" class="menu-item menu-heading" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>
-      <button type="button" class="menu-item menu-heading" data-go="documentation">Documentation</button>
+      <p class="menu-group">Recueil de données</p>
+      <button type="button" class="menu-item" data-go="general">Renseignements généraux</button>
+      <button type="button" class="menu-item" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>
+      <p class="menu-group">Analyse</p>
+      <button type="button" class="menu-item" data-go="nonsat-sec">Besoins non satisfaits</button>
+      <button type="button" class="menu-item" data-go="relation-sec">Relation entre les éléments</button>
+      <button type="button" class="menu-item" data-go="diagnostics-sec">Diagnostics infirmiers</button>
+      <p class="menu-group">Planification</p>
+      <button type="button" class="menu-item" data-go="objectifs-sec">Objectifs de soins</button>
+      <button type="button" class="menu-item" data-go="interventions-sec">Interventions infirmières</button>
+      <button type="button" class="menu-item" data-go="pm-sec">Problèmes médicaux</button>
+      <button type="button" class="menu-item" data-go="plan-sec">Plan de soins</button>
+      <p class="menu-group">Aide</p>
+      <button type="button" class="menu-item" data-go="documentation">Documentation</button>
     </div>`;
   $("#form").innerHTML = `<fieldset class="general-data"><legend>Renseignements généraux</legend><div class="general-sections">${S.map((s,i)=>
     `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span></summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
     +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux</legend>${besoinsHTML()}</fieldset>`
+    +stepHTML()
     +`<fieldset id="documentation"><legend>Documentation</legend><div class="documentation-content">
-      Coming soooooooonnnnn.......
+      <p>Mode d’emploi rapide :</p>
+      <ul>
+        <li>Remplissez les sections ; les champs marqués d’un astérisque (*) sont obligatoires.</li>
+        <li>Cliquez sur « Enregistrer le dossier » : il apparaît dans « Dossiers enregistrés ».</li>
+        <li>« Exporter le dossier en PDF » ouvre un aperçu à imprimer ou à enregistrer.</li>
+        <li>« Sauvegarder (JSON) » crée un fichier de secours de tous les dossiers ; « Restaurer » le recharge.</li>
+        <li>Version de démonstration : utilisez uniquement des patients fictifs.</li>
+      </ul>
     </div></fieldset>`;
   $("#actions").innerHTML = `<button type="button" class="btn alt" id="exportPdf">Exporter le dossier en PDF</button><button type="button" class="btn" id="save">Enregistrer le dossier</button>`;
+  renderLists();
   update();
 }
 function update(){
@@ -126,6 +151,9 @@ function update(){
   calcIMC();
   renderGuide();
   updateBesoins();
+  updateObjLabels();
+  updateIntLabels();
+  updatePlanLabels();
 }
 function calcIMC(){
   const box=$("#imcBox"); if(!box) return;
@@ -283,7 +311,7 @@ function saveDraft(){
       return;
     }
     localStorage.setItem(draftKey(),JSON.stringify({recordId:currentRecordId,data:{...data}}));
-    setAppMessage("Brouillon sauvegardé automatiquement dans ce navigateur.");
+    $("#status").textContent="Brouillon sauvegardé automatiquement dans ce navigateur.";
   }catch(error){
     setAppMessage(`Erreur lors de la sauvegarde locale : ${error instanceof Error?error.message:"espace de stockage indisponible"}`);
   }
@@ -302,6 +330,7 @@ function loadIntoForm(values,recordId){
   Object.keys(data).forEach(key=>delete data[key]);
   Object.assign(data,values);
   currentRecordId=recordId;
+  renderLists();
   $("#form").querySelectorAll("[data-k]").forEach(input=>{
     const value=data[input.dataset.k]||"";
     if(input.type==="radio") input.checked=input.value===value;
@@ -337,7 +366,7 @@ function deleteSavedRecord(id){
     localStorage.setItem(recordsKey(),JSON.stringify(records));
     if(currentRecordId===id) startNewRecord();
     refreshRecords();
-    setAppMessage("Dossier supprimé de ce navigateur.");
+    setAppMessage("Dossier supprimé de ce navigateur.",true);
   }catch(error){
     setAppMessage(`Impossible de supprimer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
   }
@@ -393,6 +422,14 @@ function showReportPreview(values){
     }));
     addReportSection(report,`${index+1}. ${label}`,entries);
   });
+  addReportSection(report,"Besoins non satisfaits",reportRows(values,"nonsat"));
+  addReportSection(report,"Relation entre les éléments",reportRows(values,"rel"));
+  addReportSection(report,"Diagnostics infirmiers : réels ou actuels",reportRows(values,"dreel"));
+  addReportSection(report,"Diagnostics infirmiers : à risque ou potentiels",reportRows(values,"drisk"));
+  addReportSection(report,"Objectifs de soins",reportObjectives(values));
+  addReportSection(report,"Interventions infirmières",reportInterventions(values));
+  addReportSection(report,"Problèmes médicaux",reportRows(values,"pm"));
+  addReportSection(report,"Plan de soins",reportPlan(values));
   $("#pdfPreview").classList.remove("hidden");
   $("#pdfPreview").scrollIntoView({behavior:"smooth"});
 }
@@ -408,12 +445,228 @@ function closeReportPreview(){
   $("#actions").scrollIntoView({behavior:"smooth"});
 }
 
+
+/* ===== SAUVEGARDE : export / import JSON ===== */
+function allowedKeys(){
+  const keys=new Set();
+  S.forEach(s=>s.f.forEach(f=>{ if(f.ty!=="guide") keys.add(f.id); }));
+  BESOINS.forEach(([id])=>ASPECTS.forEach(a=>COLS.forEach(c=>keys.add(`${id}_${a[0]}_${c[0]}`))));
+  return keys;
+}
+function exportRecords(){
+  try{
+    const records=readRecords();
+    if(!Array.isArray(records)||!records.length){ setAppMessage("Aucun dossier enregistré à sauvegarder."); return; }
+    const payload={app:"demarche-soins",version:1,exportedAt:new Date().toISOString(),records};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`demarche-soins-sauvegarde-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setAppMessage(`${records.length} dossier(s) sauvegardé(s) dans un fichier.`,true);
+  }catch(error){
+    setAppMessage(`Sauvegarde impossible : ${error instanceof Error?error.message:"erreur inconnue"}`);
+  }
+}
+function cleanRecord(r){
+  if(!r||typeof r!=="object"||typeof r.id!=="string"||!r.id) return null;
+  if(typeof r.savedAt!=="string"||isNaN(Date.parse(r.savedAt))) return null;
+  if(!r.data||typeof r.data!=="object"||Array.isArray(r.data)) return null;
+  const allowed=allowedKeys(), values={};
+  Object.keys(r.data).forEach(k=>{ if((allowed.has(k)||DYN_KEY.test(k))&&typeof r.data[k]==="string") values[k]=r.data[k]; });
+  const title=typeof r.title==="string"&&r.title.trim()?r.title.trim().slice(0,200):"Dossier sans nom";
+  return {id:r.id.slice(0,100),title,data:values,savedAt:r.savedAt};
+}
+async function importRecords(file){
+  try{
+    if(file.size>5*1024*1024) throw new Error("fichier trop volumineux (5 Mo maximum).");
+    let payload;
+    try{ payload=JSON.parse(await file.text()); }
+    catch(e){ throw new Error("ce fichier n’est pas un JSON valide."); }
+    if(!payload||payload.app!=="demarche-soins"||!Array.isArray(payload.records)) throw new Error("ce fichier n’est pas une sauvegarde de cette application.");
+    const current=readRecords();
+    if(!Array.isArray(current)) throw new Error("la liste des dossiers locaux est illisible.");
+    let added=0,updated=0,ignored=0;
+    payload.records.forEach(raw=>{
+      const rec=cleanRecord(raw);
+      if(!rec){ ignored++; return; }
+      const i=current.findIndex(x=>x.id===rec.id);
+      if(i<0){ current.push(rec); added++; }
+      else if(rec.savedAt>current[i].savedAt){ current[i]=rec; updated++; }
+      else ignored++;
+    });
+    localStorage.setItem(recordsKey(),JSON.stringify(current));
+    refreshRecords();
+    setAppMessage(`Restauration terminée : ${added} ajouté(s), ${updated} mis à jour, ${ignored} ignoré(s).`,true);
+  }catch(error){
+    setAppMessage(`Restauration impossible : ${error instanceof Error?error.message:"erreur inconnue"}`);
+  }
+}
+
+
+/* ===== LISTES À LIGNES VARIABLES : besoins non satisfaits, relations, diagnostics ===== */
+const MAX_ROWS=30;
+const DYN_KEY=/^(nonsat|rel|dreel|drisk|obj|int|pm|plan)_(n|\d{1,2}_[a-z]+)$/;
+const BESOIN_OPTS=BESOINS.map(([id,t],i)=>`${i+1}. ${t}`);
+const DYN={
+  nonsat:{add:"Ajouter un besoin",f:[["besoin","Besoin non satisfait","sel"],["actions","Actions montrant la non satisfaction du besoin","area"]]},
+  rel:{add:"Ajouter une relation",f:[["prob","Problème","text"],["cause","Cause","text"]]},
+  dreel:{add:"Ajouter un diagnostic",f:[["txt","Diagnostic réel ou actuel","area"]]},
+  drisk:{add:"Ajouter un diagnostic",f:[["txt","Diagnostic à risque ou potentiel","area"]]},
+  pm:{add:"Ajouter un problème médical",f:[["pb","Problème médical","text"],["signes","Signes observables cliniques / biologiques","area"],["cause","Cause","area"],["obj","Objectifs des soins prescrits","area"],["inter","Interventions de soins","area"],["voie","Voie d’administration","text"],["effets","Effets attendus : efficacité clinique / biologique","area"],["second","Effets secondaires à dépister","area"]]}
+};
+function stepHTML(){
+  const grp=g=>`<div data-g="${g}"></div><button type="button" class="btn alt" data-add="${g}">${DYN[g].add}</button>`;
+  return `<fieldset id="nonsat-sec"><legend>Besoins non satisfaits</legend>${grp("nonsat")}</fieldset>`
+    +`<fieldset id="relation-sec"><legend>Relation entre les éléments</legend>${grp("rel")}</fieldset>`
+    +`<fieldset id="diagnostics-sec"><legend>Diagnostics infirmiers</legend><p class="lab">Format : problème lié à la cause, se manifestant par les signes observés. Un diagnostic à risque n’a pas de manifestations.</p><h3 class="dyn-h">Réels ou actuels</h3>${grp("dreel")}<h3 class="dyn-h">À risque ou potentiels</h3>${grp("drisk")}</fieldset>`
+    +`<fieldset id="objectifs-sec"><legend>Objectifs de soins</legend><p class="lab">Un objectif par besoin non satisfait. Formulation : que le patient + verbe d’action mesurable + critère + délai.</p><div data-obj></div></fieldset>`
+    +`<fieldset id="interventions-sec"><legend>Interventions infirmières</legend><p class="lab">Pour chaque objectif de soins, indiquez les interventions infirmières à réaliser (une par ligne).</p><div data-int></div></fieldset>`
+    +`<fieldset id="pm-sec"><legend>Problèmes médicaux</legend><p class="lab">Soins prescrits : un bloc par problème médical.</p>${grp("pm")}</fieldset>`
+    +`<fieldset id="plan-sec"><legend>Plan de soins</legend><p class="lab">Un plan par besoin non satisfait. Intégrez les soins délégués dans le plan.</p><div data-plan></div></fieldset>`;
+}
+function rowCount(g){ return Math.min(Math.max(parseInt(data[g+"_n"])||1,1),MAX_ROWS); }
+function renderLists(){
+  Object.keys(DYN).forEach(g=>{
+    const box=document.querySelector(`[data-g="${g}"]`); if(!box) return;
+    const n=rowCount(g);
+    box.innerHTML=Array.from({length:n},(_,i)=>`<div class="dyn-row"><div class="dyn-head"><b>${i+1}</b>${n>1?`<button type="button" class="btn alt" data-del="${g}:${i}">Retirer</button>`:""}</div>`
+      +DYN[g].f.map(([k,l,ty])=>{
+        const key=`${g}_${i}_${k}`, id="f_"+key;
+        const ctl=ty==="sel"?`<select id="${id}" data-k="${key}"><option value="">Choisir…</option>${BESOIN_OPTS.map(o=>`<option>${o}</option>`).join("")}</select>`
+          :ty==="area"?`<textarea id="${id}" data-k="${key}"></textarea>`:`<input id="${id}" data-k="${key}" type="text">`;
+        return `<div class="fld"><label for="${id}">${l}</label>${ctl}</div>`;
+      }).join("")+`</div>`).join("");
+    box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
+  });
+  renderObjectives();
+  renderInterventions();
+  renderPlan();
+}
+function addRow(g){
+  const n=rowCount(g); if(n>=MAX_ROWS) return;
+  data[g+"_n"]=String(n+1); renderLists(); saveDraft();
+}
+function delRow(g,idx){
+  const n=rowCount(g), i=parseInt(idx); if(n<2||isNaN(i)) return;
+  for(let j=i;j<n-1;j++) DYN[g].f.forEach(([k])=>{ data[`${g}_${j}_${k}`]=data[`${g}_${j+1}_${k}`]||""; });
+  DYN[g].f.forEach(([k])=>{ delete data[`${g}_${n-1}_${k}`]; });
+  if(g==="nonsat"){
+    for(let j=i;j<n-1;j++) data[`obj_${j}_txt`]=data[`obj_${j+1}_txt`]||"";
+    delete data[`obj_${n-1}_txt`];
+    for(let j=i;j<n-1;j++) data[`int_${j}_txt`]=data[`int_${j+1}_txt`]||"";
+    delete data[`int_${n-1}_txt`];
+    ["date","deleg","edate","eval"].forEach(k=>{
+      for(let j=i;j<n-1;j++) data[`plan_${j}_${k}`]=data[`plan_${j+1}_${k}`]||"";
+      delete data[`plan_${n-1}_${k}`];
+    });
+  }
+  data[g+"_n"]=String(n-1); renderLists(); saveDraft();
+}
+function reportRows(values,g){
+  const n=Math.min(Math.max(parseInt(values[g+"_n"])||1,1),MAX_ROWS), out=[];
+  for(let i=0;i<n;i++) DYN[g].f.forEach(([k,l])=>{
+    const v=values[`${g}_${i}_${k}`]; if(v) out.push([n>1?`${i+1}. ${l}`:l,v]);
+  });
+  return out;
+}
+
+
+/* ===== OBJECTIFS DE SOINS : un objectif par besoin non satisfait ===== */
+function renderObjectives(){
+  const box=document.querySelector("[data-obj]"); if(!box) return;
+  const n=rowCount("nonsat");
+  box.innerHTML=Array.from({length:n},(_,i)=>`<div class="dyn-row"><div class="dyn-head"><b class="obj-label" data-i="${i}"></b></div><div class="fld"><label for="f_obj_${i}_txt">Objectif de soins</label><textarea id="f_obj_${i}_txt" data-k="obj_${i}_txt"></textarea></div></div>`).join("");
+  box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
+  updateObjLabels();
+}
+function updateObjLabels(){
+  document.querySelectorAll(".obj-label").forEach(el=>{
+    const i=el.dataset.i;
+    el.textContent=data[`nonsat_${i}_besoin`]||`Besoin non précisé (ligne ${+i+1})`;
+  });
+}
+function reportObjectives(values){
+  const n=Math.min(Math.max(parseInt(values.nonsat_n)||1,1),MAX_ROWS), out=[];
+  for(let i=0;i<n;i++){
+    const v=values[`obj_${i}_txt`];
+    if(v) out.push([values[`nonsat_${i}_besoin`]||`Besoin ${i+1}`,v]);
+  }
+  return out;
+}
+
+
+/* ===== INTERVENTIONS INFIRMIÈRES : une zone par objectif de soins ===== */
+function renderInterventions(){
+  const box=document.querySelector("[data-int]"); if(!box) return;
+  const n=rowCount("nonsat");
+  box.innerHTML=Array.from({length:n},(_,i)=>`<div class="dyn-row"><div class="dyn-head"><b class="int-label" data-i="${i}"></b></div><p class="lab int-obj" data-i="${i}"></p><div class="fld"><label for="f_int_${i}_txt">Interventions</label><textarea id="f_int_${i}_txt" data-k="int_${i}_txt"></textarea></div></div>`).join("");
+  box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
+  updateIntLabels();
+}
+function updateIntLabels(){
+  document.querySelectorAll(".int-label").forEach(el=>{
+    el.textContent=data[`nonsat_${el.dataset.i}_besoin`]||`Besoin non précisé (ligne ${+el.dataset.i+1})`;
+  });
+  document.querySelectorAll(".int-obj").forEach(el=>{
+    el.textContent="Objectif : "+(data[`obj_${el.dataset.i}_txt`]||"non renseigné");
+  });
+}
+function reportInterventions(values){
+  const n=Math.min(Math.max(parseInt(values.nonsat_n)||1,1),MAX_ROWS), out=[];
+  for(let i=0;i<n;i++){
+    const b=values[`nonsat_${i}_besoin`]||`Besoin ${i+1}`;
+    if(values[`obj_${i}_txt`]) out.push([`Objectif : ${b}`,values[`obj_${i}_txt`]]);
+    if(values[`int_${i}_txt`]) out.push([`Interventions : ${b}`,values[`int_${i}_txt`]]);
+  }
+  return out;
+}
+
+
+/* ===== PLAN DE SOINS : un plan par besoin non satisfait ===== */
+function renderPlan(){
+  const box=document.querySelector("[data-plan]"); if(!box) return;
+  const n=rowCount("nonsat");
+  box.innerHTML=Array.from({length:n},(_,i)=>{
+    const f=(k,l,ty,full)=>{
+      const id=`f_plan_${i}_${k}`, key=`plan_${i}_${k}`;
+      const ctl=ty==="area"?`<textarea id="${id}" data-k="${key}"></textarea>`:`<input id="${id}" data-k="${key}" type="datetime-local">`;
+      return `<div class="fld${full?" full":""}"><label for="${id}">${l}</label>${ctl}</div>`;
+    };
+    return `<div class="dyn-row"><div class="dyn-head"><b class="plan-label" data-i="${i}"></b></div><p class="lab plan-recap" data-i="${i}"></p><div class="grid">${f("date","Date et heure du plan")}${f("edate","Date et heure de l’évaluation")}${f("deleg","Soins délégués (à intégrer au plan)","area",1)}${f("eval","Évaluation","area",1)}</div></div>`;
+  }).join("");
+  box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
+  updatePlanLabels();
+}
+function updatePlanLabels(){
+  document.querySelectorAll(".plan-label").forEach(el=>{
+    el.textContent=data[`nonsat_${el.dataset.i}_besoin`]||`Besoin non précisé (ligne ${+el.dataset.i+1})`;
+  });
+  document.querySelectorAll(".plan-recap").forEach(el=>{
+    const i=el.dataset.i;
+    el.textContent="Objectif : "+(data[`obj_${i}_txt`]||"non renseigné")+"\nInterventions : "+(data[`int_${i}_txt`]||"non renseignées");
+  });
+}
+function fdt(v){ if(!v) return ""; const [d,t]=v.split("T"); return d.split("-").reverse().join("/")+(t?" "+t:""); }
+function reportPlan(values){
+  const n=Math.min(Math.max(parseInt(values.nonsat_n)||1,1),MAX_ROWS), out=[];
+  for(let i=0;i<n;i++){
+    const b=values[`nonsat_${i}_besoin`]||`Besoin ${i+1}`, g=k=>values[`plan_${i}_${k}`]||"";
+    [["Date du plan",fdt(g("date"))],["Objectif",values[`obj_${i}_txt`]||""],["Interventions",values[`int_${i}_txt`]||""],["Soins délégués",g("deleg")],["Date de l’évaluation",fdt(g("edate"))],["Évaluation",g("eval")]]
+      .forEach(([l,v])=>{ if(v) out.push([`${b} : ${l}`,v]); });
+  }
+  return out;
+}
+
 /* ===== 4. ÉVÉNEMENTS ===== */
 document.addEventListener("input",e=>{
   const k=e.target.dataset&&e.target.dataset.k; if(!k) return;
   data[k]=e.target.value; e.target.classList.remove("bad");
   update();
   saveDraft();
+  refreshValidation();
 });
 document.addEventListener("click",e=>{
   const recordButton=e.target.closest("[data-record-action]");
@@ -436,6 +689,8 @@ document.addEventListener("click",e=>{
     startNewRecord();
     return;
   }
+  if(e.target.closest("#exportRecords")){ exportRecords(); return; }
+  if(e.target.closest("#importRecords")){ $("#importFile").click(); return; }
   if(e.target.closest("#exportPdf")){
     if(validateData()) showReportPreview({...data});
     return;
@@ -462,27 +717,42 @@ document.addEventListener("click",e=>{
       ? $(".general-data")
       : t.dataset.go==="documentation"
         ? $("#documentation")
+      : /-sec$/.test(t.dataset.go)
+        ? document.getElementById(t.dataset.go)
       : +t.dataset.go<S.length
         ? document.querySelector(`.section-details[data-s="${t.dataset.go}"]`)
         : document.querySelector(`fieldset[data-s="${t.dataset.go}"]`);
     if(section.matches(".section-details")) section.open=true;
-    section.scrollIntoView({behavior:"smooth"});
     $("#nav").classList.add("hidden");
     $("#menuToggle").setAttribute("aria-expanded","false");
     $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
+    section.scrollIntoView({behavior:"smooth"});
   }
+  else if(t.dataset.add) addRow(t.dataset.add);
+  else if(t.dataset.del) delRow(...t.dataset.del.split(":"));
   else if(t.id==="guideBtn"){ $("#guidePanel").classList.toggle("hidden"); renderGuide(); }
   else if(t.dataset.ins!==undefined) insertText(insTexts[+t.dataset.ins]);
   else if(t.id==="save") save();
 });
 
-function validateData(){
+function missingFields(){
   const missing=[];
   S.forEach(s=>s.f.forEach(f=>{ if(f.req && !data[f.id]) missing.push(f); }));
+  return missing;
+}
+function missingMessage(missing){ return "Champs obligatoires manquants : "+missing.map(f=>f.l).join(", ")+"."; }
+function refreshValidation(){
+  if($("#msg").dataset.kind!=="validation") return;
+  const missing=missingFields();
+  if(missing.length) setAppMessage(missingMessage(missing),false,"validation");
+  else setAppMessage("");
+}
+function validateData(){
+  const missing=missingFields();
   document.querySelectorAll(".bad").forEach(n=>n.classList.remove("bad"));
   if(missing.length){
     missing.forEach(f=>{const el=document.getElementById("f_"+f.id); el&&el.classList.add("bad");});
-    $("#msg").textContent="Champs obligatoires manquants : "+missing.map(f=>f.l).join(", ")+".";
+    setAppMessage(missingMessage(missing),false,"validation");
     const firstField=missing[0];
     const section=S.findIndex(section=>section.f.includes(firstField));
     if(section>=0){
@@ -493,6 +763,7 @@ function validateData(){
     }
     return false;
   }
+  setAppMessage("");
   return true;
 }
 function save(){
@@ -510,11 +781,17 @@ function save(){
     currentRecordId=record.id;
     localStorage.setItem(draftKey(),JSON.stringify({recordId:currentRecordId,data:{...data}}));
     refreshRecords();
-    setAppMessage("Dossier enregistré dans ce navigateur.");
+    setAppMessage("Dossier enregistré dans ce navigateur.",true);
   }catch(error){
     setAppMessage(`Impossible d’enregistrer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
   }
 }
+document.addEventListener("change",e=>{
+  if(e.target.id!=="importFile") return;
+  const file=e.target.files&&e.target.files[0];
+  if(file) importRecords(file);
+  e.target.value="";
+});
 migrateActiveAccountData();
 build();
 loadCurrentDraft();
