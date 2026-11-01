@@ -62,8 +62,49 @@ const data = {};
 const $ = s => document.querySelector(s);
 const RECORDS_KEY = "demarcheSoins.local.records.v1";
 const DRAFT_KEY = "demarcheSoins.local.draft.v1";
+const APPEARANCE_KEY = "demarcheSoins.appearance.v1";
 let currentRecordId = null;
 let deferredInstallPrompt = null;
+
+function applyAppearance(appearance){
+  const root=document.documentElement;
+  if(appearance==="system") delete root.dataset.theme;
+  else root.dataset.theme=appearance;
+  const dark=appearance==="dark"||(appearance==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const themeColor=document.querySelector('meta[name="theme-color"]');
+  if(themeColor) themeColor.content=dark?"#0a6683":"#0b7a9e";
+}
+function initializeAppearance(){
+  let appearance="system";
+  try{
+    const saved=localStorage.getItem(APPEARANCE_KEY);
+    if(saved==="light"||saved==="dark"||saved==="system") appearance=saved;
+  }catch(error){
+    setAppMessage(`Impossible de charger la préférence d’apparence : ${error instanceof Error?error.message:"stockage indisponible"}`);
+  }
+  applyAppearance(appearance);
+  updateAppearanceMenu(appearance);
+}
+function saveAppearance(appearance){
+  if(!["system","light","dark"].includes(appearance)) return;
+  applyAppearance(appearance);
+  updateAppearanceMenu(appearance);
+  try{
+    localStorage.setItem(APPEARANCE_KEY,appearance);
+  }catch(error){
+    setAppMessage(`L’apparence a changé, mais la préférence n’a pas pu être enregistrée : ${error instanceof Error?error.message:"stockage indisponible"}`);
+  }
+}
+function updateAppearanceMenu(appearance){
+  document.querySelectorAll("[data-appearance]").forEach(button=>{
+    const selected=button.dataset.appearance===appearance;
+    button.setAttribute("aria-pressed",String(selected));
+  });
+}
+function closeAppearanceMenu(){
+  $("#appearanceMenu").classList.add("hidden");
+  $("#appearanceToggle").setAttribute("aria-expanded","false");
+}
 
 function readJSON(key, fallback){
   const raw = localStorage.getItem(key);
@@ -108,6 +149,9 @@ function fieldHTML(f){
   else c = `<input id="${id}" data-k="${f.id}" type="${f.ty}" ${f.min!=null?`min="${f.min}"`:""} ${f.max!=null?`max="${f.max}"`:""} ${f.step?`step="${f.step}"`:""} ${f.ph?`placeholder="${f.ph}"`:""}>`;
   return `<div class="fld ${f.full?'full':''}" data-f="${f.id}">${lab}${c}</div>`;
 }
+function progressBadge(key,label){
+  return `<em class="progress-badge" data-progress="${key}" aria-label="${label} : 0/0"></em>`;
+}
 
 function build(){
   $("#nav").innerHTML = `<div class="menu-panel">
@@ -127,21 +171,22 @@ function build(){
       <p class="menu-group">Aide</p>
       <button type="button" class="menu-item" data-go="documentation">Documentation</button>
     </div>`;
-  $("#form").innerHTML = `<fieldset id="report-header"><legend>En-tête du document</legend><div class="grid">
+  $("#form").innerHTML = `<fieldset id="report-header"><legend>En-tête du document ${progressBadge("header","En-tête du document")}</legend><div class="grid">
       <div class="fld"><label for="f_student">Nom de l’étudiant</label><input id="f_student" data-k="student" type="text"></div>
       <div class="fld"><label for="f_school">École</label><input id="f_school" data-k="school" type="text"></div>
       <div class="fld"><label for="f_service">Service</label><input id="f_service" data-k="service" type="text"></div>
       <div class="fld"><label for="f_supervisor">Encadrant</label><input id="f_supervisor" data-k="supervisor" type="text"></div>
       <div class="fld"><label for="f_reportDate">Date</label><input id="f_reportDate" data-k="reportDate" type="date"></div>
     </div></fieldset>`
-    +`<fieldset class="general-data"><legend>Renseignements généraux</legend><div class="general-sections">${S.map((s,i)=>
-    `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span></summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
-    +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux</legend>${besoinsHTML()}</fieldset>`
+    +`<fieldset class="general-data"><legend>Renseignements généraux ${progressBadge("general","Renseignements généraux")}</legend><div class="general-sections">${S.map((s,i)=>
+    `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span>${progressBadge(`general-${i}`,s.t)}</summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
+    +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux ${progressBadge("needs","Données sur les 14 besoins")}</legend>${besoinsHTML()}</fieldset>`
     +stepHTML()
     +`<fieldset id="documentation"><legend>Documentation</legend><div class="documentation-content">
       <p>Mode d’emploi rapide :</p>
       <ul>
         <li>Renseignez l’en-tête du document puis les sections ; les champs marqués d’un astérisque (*) sont obligatoires.</li>
+        <li>Les indicateurs affichent le nombre de champs renseignés par section ; une alerte signale les besoins non satisfaits sans objectif.</li>
         <li>Cliquez sur « Enregistrer le dossier » : il apparaît dans « Dossiers enregistrés ».</li>
         <li>« Exporter le dossier en PDF » ouvre un aperçu en paysage, à imprimer ou à enregistrer.</li>
         <li>Dans « Besoins non satisfaits », examinez les propositions provenant des besoins renseignés ; confirmez seulement celles qui sont réellement non satisfaites.</li>
@@ -169,6 +214,8 @@ function update(){
   updateObjLabels();
   updateIntLabels();
   updatePlanLabels();
+  updateProgress();
+  updateObjectiveAlert();
 }
 function calcIMC(){
   const box=$("#imcBox"); if(!box) return;
@@ -278,7 +325,11 @@ function updateBesoins(){
     let n=0;
     ASPECTS.forEach(a=>COLS.forEach(c=>{ if((data[`${id}_${a[0]}_${c[0]}`]||"").trim()) n++; }));
     const el=document.querySelector(`[data-cnt="${id}"]`);
-    if(el){ el.textContent=n+"/6"; el.classList.toggle("done",n>0); }
+    if(el){
+      el.textContent=n+"/6";
+      el.classList.toggle("done",n===6);
+      el.classList.toggle("partial",n>0&&n<6);
+    }
   });
 }
 function refreshRecords(){
@@ -638,13 +689,13 @@ const DYN={
 };
 function stepHTML(){
   const grp=g=>`<div data-g="${g}"></div><button type="button" class="btn alt" data-add="${g}">${DYN[g].add}</button>`;
-  return `<fieldset id="nonsat-sec"><legend>Besoins non satisfaits</legend><p class="diag-format">Suggestions fondées sur les informations déjà saisies dans les 14 besoins. Une donnée renseignée ne signifie pas automatiquement que le besoin est non satisfait : vérifiez chaque proposition.</p><div class="need-suggestions" data-need-suggestions></div>${grp("nonsat")}</fieldset>`
-    +`<fieldset id="relation-sec"><legend>Relation entre les éléments</legend><p class="lab">Associez un problème à sa cause, puis utilisez le bouton pour préparer un diagnostic réel à compléter.</p>${grp("rel")}</fieldset>`
-    +`<fieldset id="diagnostics-sec"><legend>Diagnostics infirmiers</legend><h3 class="dyn-h">Réels et actuels</h3><p class="diag-format">Format : [Problème] + lié à + [Étiologie/Cause] + se manifestant par + [Signes et symptômes].</p>${grp("dreel")}<h3 class="dyn-h">À risque ou potentiels</h3><p class="diag-format">Format : [Risque de…] + lié à + [Facteurs de risque].</p>${grp("drisk")}</fieldset>`
-    +`<fieldset id="objectifs-sec"><legend>Objectifs de soins</legend><div class="diag-format"><b>Deux formulations possibles :</b><br>[Le patient] + [Verbe d’action au futur] + [Résultat mesurable] + [Échéance/Délai].<br>[Que le patient] + [Verbe d’action au subjonctif] + [Résultat mesurable] + [Échéance/Délai].</div><p class="lab">Prévoir un objectif de soins pour chaque besoin non satisfait.</p><div data-obj></div></fieldset>`
-    +`<fieldset id="interventions-sec"><legend>Interventions infirmières</legend><p class="lab">Pour chaque objectif de soins, indiquez les interventions infirmières à réaliser (une par ligne).</p><div data-int></div></fieldset>`
-    +`<fieldset id="pm-sec"><legend>Problèmes médicaux</legend><p class="lab">Soins prescrits : un bloc par problème médical.</p>${grp("pm")}</fieldset>`
-    +`<fieldset id="plan-sec"><legend>Plan de soins</legend><p class="lab">Un plan par besoin non satisfait. Intégrez les soins délégués dans le plan.</p><div data-plan></div></fieldset>`;
+  return `<fieldset id="nonsat-sec"><legend>Besoins non satisfaits ${progressBadge("nonsat","Besoins non satisfaits")}</legend><p class="diag-format">Suggestions fondées sur les informations déjà saisies dans les 14 besoins. Une donnée renseignée ne signifie pas automatiquement que le besoin est non satisfait : vérifiez chaque proposition.</p><div class="need-suggestions" data-need-suggestions></div>${grp("nonsat")}</fieldset>`
+    +`<fieldset id="relation-sec"><legend>Relation entre les éléments ${progressBadge("relations","Relation entre les éléments")}</legend><p class="lab">Associez un problème à sa cause, puis utilisez le bouton pour préparer un diagnostic réel à compléter.</p>${grp("rel")}</fieldset>`
+    +`<fieldset id="diagnostics-sec"><legend>Diagnostics infirmiers ${progressBadge("diagnostics","Diagnostics infirmiers")}</legend><h3 class="dyn-h">Réels et actuels ${progressBadge("diagnostics-real","Diagnostics réels et actuels")}</h3><p class="diag-format">Format : [Problème] + lié à + [Étiologie/Cause] + se manifestant par + [Signes et symptômes].</p>${grp("dreel")}<h3 class="dyn-h">À risque ou potentiels ${progressBadge("diagnostics-risk","Diagnostics à risque ou potentiels")}</h3><p class="diag-format">Format : [Risque de…] + lié à + [Facteurs de risque].</p>${grp("drisk")}</fieldset>`
+    +`<fieldset id="objectifs-sec"><legend>Objectifs de soins ${progressBadge("objectives","Objectifs de soins")}</legend><div class="diag-format"><b>Deux formulations possibles :</b><br>[Le patient] + [Verbe d’action au futur] + [Résultat mesurable] + [Échéance/Délai].<br>[Que le patient] + [Verbe d’action au subjonctif] + [Résultat mesurable] + [Échéance/Délai].</div><p class="lab">Prévoir un objectif de soins pour chaque besoin non satisfait.</p><div class="objective-alert hidden" data-objective-alert role="alert" aria-live="polite"></div><div data-obj></div></fieldset>`
+    +`<fieldset id="interventions-sec"><legend>Interventions infirmières ${progressBadge("interventions","Interventions infirmières")}</legend><p class="lab">Pour chaque objectif de soins, indiquez les interventions infirmières à réaliser (une par ligne).</p><div data-int></div></fieldset>`
+    +`<fieldset id="pm-sec"><legend>Problèmes médicaux ${progressBadge("medical","Problèmes médicaux")}</legend><p class="lab">Soins prescrits : un bloc par problème médical.</p>${grp("pm")}</fieldset>`
+    +`<fieldset id="plan-sec"><legend>Plan de soins ${progressBadge("plan","Plan de soins")}</legend><p class="lab">Un plan par besoin non satisfait. Intégrez les soins délégués dans le plan.</p><div data-plan></div></fieldset>`;
 }
 function rowCount(g){ return Math.min(Math.max(parseInt(data[g+"_n"])||1,1),MAX_ROWS); }
 function renderLists(){
@@ -665,11 +716,88 @@ function renderLists(){
   renderObjectives();
   renderInterventions();
   renderPlan();
+  updateProgress();
+  updateObjectiveAlert();
 }
 function filledNeeds(){
   return BESOINS.filter(([id])=>ASPECTS.some(aspect=>COLS.some(column=>
     String(data[`${id}_${aspect[0]}_${column[0]}`]||"").trim()
   )));
+}
+function setProgress(key,filled,total,unit="champs"){
+  const badge=document.querySelector(`[data-progress="${key}"]`);
+  if(!badge) return;
+  const safeFilled=Math.min(filled,total);
+  badge.textContent=total?`${safeFilled}/${total} ${unit}`:`0 ${unit}`;
+  badge.setAttribute("aria-label",total
+    ?`${safeFilled} sur ${total} ${unit} renseignés`
+    :`Aucun ${unit} à renseigner`);
+  badge.classList.toggle("is-complete",total>0&&safeFilled===total);
+  badge.classList.toggle("is-started",safeFilled>0&&safeFilled<total);
+}
+function isFilled(key){ return String(data[key]||"").trim()!==""; }
+function updateProgress(){
+  const headerKeys=["student","school","service","supervisor","reportDate"];
+  setProgress("header",headerKeys.filter(isFilled).length,headerKeys.length);
+
+  let generalFilled=0,generalTotal=0;
+  S.forEach((section,index)=>{
+    const fields=section.f.filter(field=>field.ty!=="guide"&&(!field.show||field.show(data)));
+    const keys=fields.map(field=>field.id);
+    const filled=keys.filter(isFilled).length;
+    setProgress(`general-${index}`,filled,keys.length);
+    generalFilled+=filled;
+    generalTotal+=keys.length;
+  });
+  setProgress("general",generalFilled,generalTotal);
+
+  const needsWithData=filledNeeds().length;
+  setProgress("needs",needsWithData,BESOINS.length,"besoins");
+
+  const countFields=(group,fields)=>{
+    const total=rowCount(group)*fields.length;
+    let filled=0;
+    for(let i=0;i<rowCount(group);i++){
+      fields.forEach(field=>{ if(isFilled(`${group}_${i}_${field}`)) filled++; });
+    }
+    return {filled,total};
+  };
+  const nonsat=countFields("nonsat",["besoin","actions"]);
+  setProgress("nonsat",nonsat.filled,nonsat.total);
+  const relations=countFields("rel",["prob","cause"]);
+  setProgress("relations",relations.filled,relations.total);
+  const real=countFields("dreel",["txt"]);
+  setProgress("diagnostics-real",real.filled,real.total,"diagnostics");
+  const risk=countFields("drisk",["txt"]);
+  setProgress("diagnostics-risk",risk.filled,risk.total,"diagnostics");
+  setProgress("diagnostics",real.filled+risk.filled,real.total+risk.total,"diagnostics");
+  const medical=countFields("pm",DYN.pm.f.map(([key])=>key));
+  setProgress("medical",medical.filled,medical.total);
+
+  const selected=[];
+  for(let i=0;i<rowCount("nonsat");i++){
+    if(isFilled(`nonsat_${i}_besoin`)) selected.push(i);
+  }
+  const objectivesFilled=selected.filter(i=>isFilled(`obj_${i}_txt`)).length;
+  const interventionsFilled=selected.filter(i=>isFilled(`int_${i}_txt`)).length;
+  setProgress("objectives",objectivesFilled,selected.length,"objectifs");
+  setProgress("interventions",interventionsFilled,selected.length,"interventions");
+  const planFields=["date","edate","deleg","eval"];
+  const planFilled=selected.reduce((count,i)=>count+planFields.filter(key=>isFilled(`plan_${i}_${key}`)).length,0);
+  setProgress("plan",planFilled,selected.length*planFields.length);
+}
+function updateObjectiveAlert(){
+  const alert=document.querySelector("[data-objective-alert]");
+  if(!alert) return;
+  const missing=[];
+  for(let i=0;i<rowCount("nonsat");i++){
+    if(!isFilled(`nonsat_${i}_besoin`)||isFilled(`obj_${i}_txt`)) continue;
+    missing.push(data[`nonsat_${i}_besoin`]);
+  }
+  alert.classList.toggle("hidden",missing.length===0);
+  alert.textContent=missing.length
+    ?`Objectif à renseigner pour ${missing.length===1?"ce besoin":"ces besoins"} non satisfait${missing.length===1?"":"s"} : ${missing.join(" ; ")}.`
+    :"";
 }
 function updateNeedSuggestions(){
   const box=document.querySelector("[data-need-suggestions]");
@@ -893,6 +1021,20 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#exportRecords")){ exportRecords(); return; }
   if(e.target.closest("#importRecords")){ $("#importFile").click(); return; }
   if(e.target.closest("#installApp")){ installApp(); return; }
+  const appearanceToggle=e.target.closest("#appearanceToggle");
+  if(appearanceToggle){
+    const menu=$("#appearanceMenu");
+    const open=menu.classList.contains("hidden");
+    menu.classList.toggle("hidden",!open);
+    appearanceToggle.setAttribute("aria-expanded",String(open));
+    return;
+  }
+  const appearanceOption=e.target.closest("[data-appearance]");
+  if(appearanceOption){
+    saveAppearance(appearanceOption.dataset.appearance);
+    closeAppearanceMenu();
+    return;
+  }
   const suggestedNeed=e.target.closest("[data-suggest-need]");
   if(suggestedNeed){ proposeNeed(suggestedNeed.dataset.suggestNeed); return; }
   const diagnosisButton=e.target.closest("[data-diagnosis-from]");
@@ -905,6 +1047,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#savePreviewPdf")||e.target.closest("#printPreview")){ printReport(); return; }
   const menuToggle=e.target.closest("#menuToggle");
   if(menuToggle){
+    closeAppearanceMenu();
     const open=menuToggle.getAttribute("aria-expanded")!=="true";
     $("#nav").classList.toggle("hidden",!open);
     menuToggle.setAttribute("aria-expanded",String(open));
@@ -916,6 +1059,7 @@ document.addEventListener("click",e=>{
     $("#menuToggle").setAttribute("aria-expanded","false");
     $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
   }
+  if(!e.target.closest("#appearanceMenu")&&!e.target.closest("#appearanceToggle")) closeAppearanceMenu();
   const t=e.target.closest("button");
   if(!t) return;
   if(t.dataset.go!==undefined){
@@ -1010,7 +1154,14 @@ window.addEventListener("appinstalled",()=>{
   $("#installApp").classList.add("hidden");
   $("#status").textContent="Application installée sur cet appareil.";
 });
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&!$("#appearanceMenu").classList.contains("hidden")){
+    closeAppearanceMenu();
+    $("#appearanceToggle").focus();
+  }
+});
 migrateActiveAccountData();
 build();
+initializeAppearance();
 loadCurrentDraft();
 enableOfflineApp();

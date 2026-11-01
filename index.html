@@ -15,8 +15,16 @@
   <header class="top">
     <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#fff"/><path d="M6 25h10l4-11 7 22 5-15 3 4h7" fill="none" stroke="#0b7a9e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <div><h1>Démarche de soins</h1></div>
+    <button type="button" class="appearance-toggle" id="appearanceToggle" aria-label="Choisir l’apparence" aria-expanded="false" aria-controls="appearanceMenu" title="Choisir l’apparence">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5-.04-.99-.12-1.47A7 7 0 0 1 13.47 3.12 9 9 0 0 0 12 3Z"/></svg>
+    </button>
     <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="nav" aria-label="Ouvrir le menu de navigation"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
   </header>
+  <div class="appearance-menu hidden" id="appearanceMenu" role="group" aria-label="Choisir le mode d’apparence">
+    <button type="button" class="appearance-option" data-appearance="system">Selon l’appareil</button>
+    <button type="button" class="appearance-option" data-appearance="light">Clair</button>
+    <button type="button" class="appearance-option" data-appearance="dark">Sombre</button>
+  </div>
   <button type="button" class="btn alt install-app hidden" id="installApp">Installer l’application</button>
   <nav id="nav" class="nav hidden" aria-label="Navigation principale"></nav>
   <section id="recordsPanel" class="records-panel" aria-labelledby="recordsHeading">

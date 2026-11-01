@@ -1,6 +1,8 @@
 /* ===== Couleurs (clair / sombre) ===== */
 :root{--bg:#f2f7fa;--card:#fff;--ink:#12303d;--mute:#566f7c;--line:#d3e2ea;--acc:#0b7a9e;--acc2:#10a39a;--soft:#e6f4f6;--acc-ink:#fff;--warn:#c0392b;--ok:#23895a;--hd1:#0b7a9e;--hd2:#10a39a}
-@media (prefers-color-scheme:dark){:root{--bg:#0e1a20;--card:#15262e;--ink:#e4eff3;--mute:#98b1bc;--line:#2a414c;--acc:#4cc3e0;--acc2:#3fcfc4;--soft:#193541;--acc-ink:#05212b;--warn:#f08a7a;--ok:#6fd1a0;--hd1:#0a6683;--hd2:#0d8a83}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0e1a20;--card:#15262e;--ink:#e4eff3;--mute:#98b1bc;--line:#2a414c;--acc:#4cc3e0;--acc2:#3fcfc4;--soft:#193541;--acc-ink:#05212b;--warn:#f08a7a;--ok:#6fd1a0;--hd1:#0a6683;--hd2:#0d8a83}
+@media (prefers-color-scheme:dark){:root:not([data-theme]){color-scheme:dark;--bg:#0e1a20;--card:#15262e;--ink:#e4eff3;--mute:#98b1bc;--line:#2a414c;--acc:#4cc3e0;--acc2:#3fcfc4;--soft:#193541;--acc-ink:#05212b;--warn:#f08a7a;--ok:#6fd1a0;--hd1:#0a6683;--hd2:#0d8a83}}
+:root[data-theme="light"]{color-scheme:light}
 
 /* ===== Base ===== */
 *{box-sizing:border-box}
@@ -25,6 +27,13 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .nav{margin:0 0 16px}
 .menu-toggle{display:flex;align-items:center;justify-content:center;width:42px;height:42px;margin-left:auto;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:#fff;cursor:pointer}
 .install-app{display:block;margin:0 0 12px auto;padding:7px 10px;font-size:.8rem}
+.appearance-toggle{display:flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;margin-left:auto;padding:8px;border:1px solid #ffffff80;border-radius:8px;background:transparent;color:#fff;cursor:pointer}
+.appearance-toggle:hover,.appearance-toggle[aria-expanded="true"]{background:#ffffff26}
+.appearance-toggle svg{width:20px;height:20px;fill:currentColor}
+.top .menu-toggle{margin-left:0}
+.appearance-menu{position:absolute;z-index:5;right:max(16px,calc((100vw - 760px)/2 + 16px));display:flex;gap:4px;padding:6px;background:var(--card);border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px #0002}
+.appearance-option{padding:7px 10px;border:0;border-radius:6px;background:transparent;color:var(--ink);font:inherit;font-size:.82rem;cursor:pointer}
+.appearance-option:hover,.appearance-option[aria-pressed="true"]{background:var(--soft);color:var(--acc)}
 .menu-toggle:hover{background:#ffffff26;border-color:#ffffff80}
 .menu-icon{position:relative;display:block;width:21px;height:18px}
 .menu-icon span{position:absolute;left:0;width:100%;height:2px;border-radius:2px;background:currentColor;transition:top .22s ease,transform .22s ease,opacity .16s ease}
@@ -90,7 +99,9 @@ textarea{min-height:84px;resize:vertical}
 .bes[open] summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
 .section-details .grid{padding:0 12px 12px}
 .cnt{font-style:normal;font-size:.8rem;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:12px;padding:1px 9px;white-space:nowrap;align-self:center}
-.cnt.done{color:var(--ok);border-color:var(--ok)}
+.cnt.done,.progress-badge.is-complete{color:var(--ok);border-color:var(--ok)}
+.cnt.partial,.progress-badge.is-started{color:#9a6500;border-color:#c58a1b}
+.progress-badge{display:inline-block;margin-left:8px;padding:1px 8px;border:1px solid var(--line);border-radius:12px;color:var(--mute);font-size:.72rem;font-style:normal;font-weight:500;line-height:1.5;vertical-align:middle;white-space:nowrap}
 
 /* ===== Tableau des 14 besoins ===== */
 .bt{padding:0 12px 12px}
@@ -110,8 +121,10 @@ textarea{min-height:84px;resize:vertical}
 .dyn-row .fld+.fld{margin-top:8px}
 .int-obj,.plan-recap{margin:0 0 8px;white-space:pre-wrap}
 .dyn-h{font-size:1rem;margin:16px 0 8px;color:var(--acc)}
+.dyn-h .progress-badge{font-size:.68rem}
 .diag-format{margin:0 0 10px;padding:9px 11px;border-left:3px solid var(--acc);border-radius:4px;background:var(--soft);font-size:.88rem;color:var(--mute)}
 fieldset>.lab{margin:0 0 8px}
+.objective-alert{margin:10px 0 14px;padding:10px 12px;border-left:4px solid var(--warn);border-radius:5px;background:var(--soft);color:var(--warn);font-size:.9rem;font-weight:600}
 .need-suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
 .need-suggestions:empty{display:none}
 .suggestion-title{flex-basis:100%;margin:0;color:var(--mute);font-size:.88rem}
