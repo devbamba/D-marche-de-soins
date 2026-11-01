@@ -1,0 +1,24 @@
+{
+  "id": "./",
+  "name": "Démarche de soins",
+  "short_name": "Soins",
+  "description": "Outil de démonstration pour préparer une démarche de soins avec des patients fictifs.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f7fa",
+  "theme_color": "#0b7a9e",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

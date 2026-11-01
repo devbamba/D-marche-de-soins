@@ -63,6 +63,7 @@ const $ = s => document.querySelector(s);
 const RECORDS_KEY = "demarcheSoins.local.records.v1";
 const DRAFT_KEY = "demarcheSoins.local.draft.v1";
 let currentRecordId = null;
+let deferredInstallPrompt = null;
 
 function readJSON(key, fallback){
   const raw = localStorage.getItem(key);
@@ -111,6 +112,7 @@ function fieldHTML(f){
 function build(){
   $("#nav").innerHTML = `<div class="menu-panel">
       <p class="menu-group">Recueil de données</p>
+      <button type="button" class="menu-item" data-go="report-header">En-tête du document</button>
       <button type="button" class="menu-item" data-go="general">Renseignements généraux</button>
       <button type="button" class="menu-item" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>
       <p class="menu-group">Analyse</p>
@@ -125,17 +127,28 @@ function build(){
       <p class="menu-group">Aide</p>
       <button type="button" class="menu-item" data-go="documentation">Documentation</button>
     </div>`;
-  $("#form").innerHTML = `<fieldset class="general-data"><legend>Renseignements généraux</legend><div class="general-sections">${S.map((s,i)=>
+  $("#form").innerHTML = `<fieldset id="report-header"><legend>En-tête du document</legend><div class="grid">
+      <div class="fld"><label for="f_student">Nom de l’étudiant</label><input id="f_student" data-k="student" type="text"></div>
+      <div class="fld"><label for="f_school">École</label><input id="f_school" data-k="school" type="text"></div>
+      <div class="fld"><label for="f_service">Service</label><input id="f_service" data-k="service" type="text"></div>
+      <div class="fld"><label for="f_supervisor">Encadrant</label><input id="f_supervisor" data-k="supervisor" type="text"></div>
+      <div class="fld"><label for="f_reportDate">Date</label><input id="f_reportDate" data-k="reportDate" type="date"></div>
+    </div></fieldset>`
+    +`<fieldset class="general-data"><legend>Renseignements généraux</legend><div class="general-sections">${S.map((s,i)=>
     `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span></summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
     +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux</legend>${besoinsHTML()}</fieldset>`
     +stepHTML()
     +`<fieldset id="documentation"><legend>Documentation</legend><div class="documentation-content">
       <p>Mode d’emploi rapide :</p>
       <ul>
-        <li>Remplissez les sections ; les champs marqués d’un astérisque (*) sont obligatoires.</li>
+        <li>Renseignez l’en-tête du document puis les sections ; les champs marqués d’un astérisque (*) sont obligatoires.</li>
         <li>Cliquez sur « Enregistrer le dossier » : il apparaît dans « Dossiers enregistrés ».</li>
-        <li>« Exporter le dossier en PDF » ouvre un aperçu à imprimer ou à enregistrer.</li>
+        <li>« Exporter le dossier en PDF » ouvre un aperçu en paysage, à imprimer ou à enregistrer.</li>
+        <li>Dans « Besoins non satisfaits », examinez les propositions provenant des besoins renseignés ; confirmez seulement celles qui sont réellement non satisfaites.</li>
+        <li>Dans « Relation entre les éléments », associez un problème et une cause puis préremplissez un diagnostic réel à compléter avec les signes et symptômes.</li>
         <li>« Sauvegarder (JSON) » crée un fichier de secours de tous les dossiers ; « Restaurer » le recharge.</li>
+        <li>Pour l’installation, ouvrez d’abord l’application en ligne avec une adresse HTTPS : utilisez « Installer l’application » quand le bouton apparaît, ou le menu du navigateur (« Installer » / « Ajouter à l’écran d’accueil »). Sur iPhone/iPad, utilisez Safari puis Partager &gt; Sur l’écran d’accueil.</li>
+        <li>Une première ouverture avec connexion est nécessaire pour mettre l’application en cache. Ensuite, elle peut s’ouvrir hors ligne sur ce même appareil et dans ce même navigateur.</li>
         <li>Version de démonstration : utilisez uniquement des patients fictifs.</li>
       </ul>
     </div></fieldset>`;
@@ -151,6 +164,8 @@ function update(){
   calcIMC();
   renderGuide();
   updateBesoins();
+  updateNeedSuggestions();
+  updateRelationDiagnosisButtons();
   updateObjLabels();
   updateIntLabels();
   updatePlanLabels();
@@ -397,6 +412,43 @@ function addReportSection(report,title,entries){
   }
   report.append(section);
 }
+function reportTable(report,title,headings,rows){
+  const section=document.createElement("section");
+  section.className="report-section";
+  const heading=document.createElement("h2");
+  heading.textContent=title;
+  section.append(heading);
+  if(!rows.length){
+    const empty=document.createElement("p");
+    empty.textContent="Aucune donnée renseignée.";
+    section.append(empty);
+  }else{
+    const table=document.createElement("table");
+    table.className=`report-grid-table${headings.length===5?" plan-table":""}`;
+    const thead=document.createElement("thead");
+    const headerRow=document.createElement("tr");
+    headings.forEach(label=>{
+      const cell=document.createElement("th");
+      cell.scope="col";
+      cell.textContent=label;
+      headerRow.append(cell);
+    });
+    thead.append(headerRow);
+    const tbody=document.createElement("tbody");
+    rows.forEach(values=>{
+      const row=document.createElement("tr");
+      values.forEach(value=>{
+        const cell=document.createElement("td");
+        cell.textContent=value||"";
+        row.append(cell);
+      });
+      tbody.append(row);
+    });
+    table.append(thead,tbody);
+    section.append(table);
+  }
+  report.append(section);
+}
 function showReportPreview(values){
   const report=$("#printReport");
   report.replaceChildren();
@@ -405,8 +457,16 @@ function showReportPreview(values){
   report.append(title);
   const generated=document.createElement("p");
   generated.className="report-date";
-  generated.textContent=`Document généré le ${new Date().toLocaleString("fr-FR")} — Démonstration avec données fictives`;
+  generated.textContent="Démarche de soins — Document de travail";
   report.append(generated);
+  const headerRows=[
+    ["Nom de l’étudiant",values.student],
+    ["École",values.school],
+    ["Service",values.service||values.lieu],
+    ["Encadrant",values.supervisor],
+    ["Date",values.reportDate?fdate(values.reportDate):""]
+  ];
+  addReportSection(report,"Informations de présentation",headerRows);
   S.forEach(section=>{
     const entries=section.f.filter(field=>field.ty!=="guide").map(field=>[
       field.l,
@@ -415,21 +475,52 @@ function showReportPreview(values){
     addReportSection(report,section.t,entries);
   });
   BESOINS.forEach(([id,label],index)=>{
-    const entries=[];
-    ASPECTS.forEach(aspect=>COLS.forEach(column=>{
-      const value=values[`${id}_${aspect[0]}_${column[0]}`];
-      if(value) entries.push([`${aspect[1]} — ${column[1]}`,value]);
-    }));
-    addReportSection(report,`${index+1}. ${label}`,entries);
+    const rows=ASPECTS.map(aspect=>[
+      aspect[1],
+      values[`${id}_${aspect[0]}_obs`]||"",
+      values[`${id}_${aspect[0]}_dos`]||""
+    ]).filter(([,observations,dossier])=>observations||dossier);
+    reportTable(report,`${index+1}. ${label}`,["Aspect",COLS[0][1],COLS[1][1]],rows);
   });
-  addReportSection(report,"Besoins non satisfaits",reportRows(values,"nonsat"));
+  const needCount=Math.min(Math.max(parseInt(values.nonsat_n)||1,1),MAX_ROWS);
+  const unmetRows=[];
+  for(let i=0;i<needCount;i++){
+    const need=values[`nonsat_${i}_besoin`]||"";
+    const actions=values[`nonsat_${i}_actions`]||"";
+    if(need||actions) unmetRows.push([need,actions]);
+  }
+  reportTable(report,"Besoins non satisfaits",["Besoins non satisfaits","Actions montrant la non-satisfaction"],unmetRows);
   addReportSection(report,"Relation entre les éléments",reportRows(values,"rel"));
   addReportSection(report,"Diagnostics infirmiers : réels ou actuels",reportRows(values,"dreel"));
   addReportSection(report,"Diagnostics infirmiers : à risque ou potentiels",reportRows(values,"drisk"));
-  addReportSection(report,"Objectifs de soins",reportObjectives(values));
-  addReportSection(report,"Interventions infirmières",reportInterventions(values));
+  const objectiveRows=[];
+  for(let i=0;i<needCount;i++){
+    const objective=values[`obj_${i}_txt`]||"";
+    const interventions=values[`int_${i}_txt`]||"";
+    if(objective||interventions) objectiveRows.push([objective,interventions]);
+  }
+  reportTable(report,"Objectifs et interventions",["Objectifs de soins","Interventions infirmières"],objectiveRows);
   addReportSection(report,"Problèmes médicaux",reportRows(values,"pm"));
-  addReportSection(report,"Plan de soins",reportPlan(values));
+  const planRows=[];
+  for(let i=0;i<needCount;i++){
+    const date=values[`plan_${i}_date`]||"";
+    const need=values[`nonsat_${i}_besoin`]||"";
+    const objective=values[`obj_${i}_txt`]||"";
+    const interventions=values[`int_${i}_txt`]||"";
+    const delegated=values[`plan_${i}_deleg`]||"";
+    const evaluationDate=values[`plan_${i}_edate`]?fdt(values[`plan_${i}_edate`]):"";
+    const evaluation=values[`plan_${i}_eval`]||"";
+    if(date||need||objective||interventions||delegated||evaluationDate||evaluation){
+      planRows.push([
+        [date?fdt(date):"",need].filter(Boolean).join("\n"),
+        objective,
+        interventions,
+        delegated,
+        [evaluationDate,evaluation].filter(Boolean).join("\n")
+      ]);
+    }
+  }
+  reportTable(report,"Plan de soins",["Date du plan / besoin non satisfait","Objectif","Interventions infirmières","Soins délégués","Évaluation (date et résultat)"],planRows);
   $("#pdfPreview").classList.remove("hidden");
   $("#pdfPreview").scrollIntoView({behavior:"smooth"});
 }
@@ -444,12 +535,40 @@ function closeReportPreview(){
   $("#pdfPreview").classList.add("hidden");
   $("#actions").scrollIntoView({behavior:"smooth"});
 }
+async function installApp(){
+  if(!deferredInstallPrompt) return;
+  const prompt=deferredInstallPrompt;
+  deferredInstallPrompt=null;
+  try{
+    await prompt.prompt();
+    const choice=await prompt.userChoice;
+    $("#installApp").classList.add("hidden");
+    $("#status").textContent=choice.outcome==="accepted"
+      ?"Installation de l’application acceptée."
+      :"Installation de l’application annulée.";
+  }catch(error){
+    setAppMessage(`Impossible de lancer l’installation : ${error instanceof Error?error.message:"erreur inconnue"}`);
+  }
+}
+function enableOfflineApp(){
+  if(!window.isSecureContext||!("serviceWorker" in navigator)){
+    $("#status").textContent="Pour installer l’application et activer le mode hors ligne, ouvrez-la depuis une adresse HTTPS.";
+    return;
+  }
+  navigator.serviceWorker.register("./sw.js")
+    .then(()=>navigator.serviceWorker.ready)
+    .then(()=>{ $("#status").textContent="Application prête à fonctionner hors ligne sur cet appareil."; })
+    .catch(error=>{
+      setAppMessage(`Le mode hors ligne n’a pas pu être activé : ${error instanceof Error?error.message:"erreur inconnue"}`);
+    });
+}
 
 
 /* ===== SAUVEGARDE : export / import JSON ===== */
 function allowedKeys(){
   const keys=new Set();
   S.forEach(s=>s.f.forEach(f=>{ if(f.ty!=="guide") keys.add(f.id); }));
+  ["student","school","service","supervisor","reportDate"].forEach(key=>keys.add(key));
   BESOINS.forEach(([id])=>ASPECTS.forEach(a=>COLS.forEach(c=>keys.add(`${id}_${a[0]}_${c[0]}`))));
   return keys;
 }
@@ -519,10 +638,10 @@ const DYN={
 };
 function stepHTML(){
   const grp=g=>`<div data-g="${g}"></div><button type="button" class="btn alt" data-add="${g}">${DYN[g].add}</button>`;
-  return `<fieldset id="nonsat-sec"><legend>Besoins non satisfaits</legend>${grp("nonsat")}</fieldset>`
-    +`<fieldset id="relation-sec"><legend>Relation entre les éléments</legend>${grp("rel")}</fieldset>`
-    +`<fieldset id="diagnostics-sec"><legend>Diagnostics infirmiers</legend><p class="lab">Format : problème lié à la cause, se manifestant par les signes observés. Un diagnostic à risque n’a pas de manifestations.</p><h3 class="dyn-h">Réels ou actuels</h3>${grp("dreel")}<h3 class="dyn-h">À risque ou potentiels</h3>${grp("drisk")}</fieldset>`
-    +`<fieldset id="objectifs-sec"><legend>Objectifs de soins</legend><p class="lab">Un objectif par besoin non satisfait. Formulation : que le patient + verbe d’action mesurable + critère + délai.</p><div data-obj></div></fieldset>`
+  return `<fieldset id="nonsat-sec"><legend>Besoins non satisfaits</legend><p class="diag-format">Suggestions fondées sur les informations déjà saisies dans les 14 besoins. Une donnée renseignée ne signifie pas automatiquement que le besoin est non satisfait : vérifiez chaque proposition.</p><div class="need-suggestions" data-need-suggestions></div>${grp("nonsat")}</fieldset>`
+    +`<fieldset id="relation-sec"><legend>Relation entre les éléments</legend><p class="lab">Associez un problème à sa cause, puis utilisez le bouton pour préparer un diagnostic réel à compléter.</p>${grp("rel")}</fieldset>`
+    +`<fieldset id="diagnostics-sec"><legend>Diagnostics infirmiers</legend><h3 class="dyn-h">Réels et actuels</h3><p class="diag-format">Format : [Problème] + lié à + [Étiologie/Cause] + se manifestant par + [Signes et symptômes].</p>${grp("dreel")}<h3 class="dyn-h">À risque ou potentiels</h3><p class="diag-format">Format : [Risque de…] + lié à + [Facteurs de risque].</p>${grp("drisk")}</fieldset>`
+    +`<fieldset id="objectifs-sec"><legend>Objectifs de soins</legend><div class="diag-format"><b>Deux formulations possibles :</b><br>[Le patient] + [Verbe d’action au futur] + [Résultat mesurable] + [Échéance/Délai].<br>[Que le patient] + [Verbe d’action au subjonctif] + [Résultat mesurable] + [Échéance/Délai].</div><p class="lab">Prévoir un objectif de soins pour chaque besoin non satisfait.</p><div data-obj></div></fieldset>`
     +`<fieldset id="interventions-sec"><legend>Interventions infirmières</legend><p class="lab">Pour chaque objectif de soins, indiquez les interventions infirmières à réaliser (une par ligne).</p><div data-int></div></fieldset>`
     +`<fieldset id="pm-sec"><legend>Problèmes médicaux</legend><p class="lab">Soins prescrits : un bloc par problème médical.</p>${grp("pm")}</fieldset>`
     +`<fieldset id="plan-sec"><legend>Plan de soins</legend><p class="lab">Un plan par besoin non satisfait. Intégrez les soins délégués dans le plan.</p><div data-plan></div></fieldset>`;
@@ -538,12 +657,94 @@ function renderLists(){
         const ctl=ty==="sel"?`<select id="${id}" data-k="${key}"><option value="">Choisir…</option>${BESOIN_OPTS.map(o=>`<option>${o}</option>`).join("")}</select>`
           :ty==="area"?`<textarea id="${id}" data-k="${key}"></textarea>`:`<input id="${id}" data-k="${key}" type="text">`;
         return `<div class="fld"><label for="${id}">${l}</label>${ctl}</div>`;
-      }).join("")+`</div>`).join("");
+      }).join("")+(g==="rel"?`<button type="button" class="btn alt relation-diagnosis" data-diagnosis-from="${i}" disabled>Préremplir un diagnostic réel</button>`:"")+`</div>`).join("");
     box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
   });
+  updateNeedSuggestions();
+  updateRelationDiagnosisButtons();
   renderObjectives();
   renderInterventions();
   renderPlan();
+}
+function filledNeeds(){
+  return BESOINS.filter(([id])=>ASPECTS.some(aspect=>COLS.some(column=>
+    String(data[`${id}_${aspect[0]}_${column[0]}`]||"").trim()
+  )));
+}
+function updateNeedSuggestions(){
+  const box=document.querySelector("[data-need-suggestions]");
+  if(!box) return;
+  const selected=new Set();
+  for(let i=0;i<rowCount("nonsat");i++){
+    const need=data[`nonsat_${i}_besoin`];
+    if(need) selected.add(need);
+  }
+  const suggestions=filledNeeds().filter(([id])=>{
+    const index=BESOINS.findIndex(([needId])=>needId===id);
+    return !selected.has(`${index+1}. ${BESOINS[index][1]}`);
+  });
+  box.replaceChildren();
+  if(!suggestions.length) return;
+  const title=document.createElement("p");
+  title.className="suggestion-title";
+  title.textContent="Besoins renseignés à examiner :";
+  box.append(title);
+  suggestions.forEach(([id,label])=>{
+    const index=BESOINS.findIndex(([needId])=>needId===id);
+    const button=document.createElement("button");
+    button.type="button";
+    button.className="btn alt need-suggestion";
+    button.dataset.suggestNeed=id;
+    button.textContent=`Proposer : ${index+1}. ${label}`;
+    box.append(button);
+  });
+}
+function proposeNeed(id){
+  const needIndex=BESOINS.findIndex(([needId])=>needId===id);
+  if(needIndex<0) return;
+  const label=`${needIndex+1}. ${BESOINS[needIndex][1]}`;
+  const n=rowCount("nonsat");
+  for(let i=0;i<n;i++) if(data[`nonsat_${i}_besoin`]===label) return;
+  const emptyIndex=Array.from({length:n},(_,i)=>i).find(i=>
+    DYN.nonsat.f.every(([key])=>!String(data[`nonsat_${i}_${key}`]||"").trim())
+  );
+  const targetIndex=emptyIndex===undefined?n:emptyIndex;
+  if(targetIndex>=MAX_ROWS){
+    setAppMessage(`Le nombre maximal de besoins (${MAX_ROWS}) est atteint.`);
+    return;
+  }
+  if(targetIndex===n) data.nonsat_n=String(n+1);
+  data[`nonsat_${targetIndex}_besoin`]=label;
+  renderLists();
+  update();
+  saveDraft();
+}
+function updateRelationDiagnosisButtons(){
+  document.querySelectorAll("[data-diagnosis-from]").forEach(button=>{
+    const i=button.dataset.diagnosisFrom;
+    button.disabled=!(String(data[`rel_${i}_prob`]||"").trim()&&String(data[`rel_${i}_cause`]||"").trim());
+  });
+}
+function createDiagnosisFromRelation(index){
+  const problem=String(data[`rel_${index}_prob`]||"").trim();
+  const cause=String(data[`rel_${index}_cause`]||"").trim();
+  if(!problem||!cause) return;
+  const diagnosis=`${problem} lié à ${cause}, se manifestant par [signes et symptômes à compléter]`;
+  const n=rowCount("dreel");
+  const existingIndex=Array.from({length:n},(_,i)=>i).find(i=>!String(data[`dreel_${i}_txt`]||"").trim());
+  if(existingIndex===undefined&&n>=MAX_ROWS){
+    setAppMessage(`Le nombre maximal de diagnostics (${MAX_ROWS}) est atteint.`);
+    return;
+  }
+  const targetIndex=existingIndex===undefined?n:existingIndex;
+  if(targetIndex===n) data.dreel_n=String(n+1);
+  data[`dreel_${targetIndex}_txt`]=diagnosis;
+  renderLists();
+  update();
+  saveDraft();
+  const target=document.getElementById(`f_dreel_${targetIndex}_txt`);
+  target?.scrollIntoView({behavior:"smooth",block:"center"});
+  target?.focus({preventScroll:true});
 }
 function addRow(g){
   const n=rowCount(g); if(n>=MAX_ROWS) return;
@@ -691,6 +892,11 @@ document.addEventListener("click",e=>{
   }
   if(e.target.closest("#exportRecords")){ exportRecords(); return; }
   if(e.target.closest("#importRecords")){ $("#importFile").click(); return; }
+  if(e.target.closest("#installApp")){ installApp(); return; }
+  const suggestedNeed=e.target.closest("[data-suggest-need]");
+  if(suggestedNeed){ proposeNeed(suggestedNeed.dataset.suggestNeed); return; }
+  const diagnosisButton=e.target.closest("[data-diagnosis-from]");
+  if(diagnosisButton){ createDiagnosisFromRelation(diagnosisButton.dataset.diagnosisFrom); return; }
   if(e.target.closest("#exportPdf")){
     if(validateData()) showReportPreview({...data});
     return;
@@ -715,6 +921,8 @@ document.addEventListener("click",e=>{
   if(t.dataset.go!==undefined){
     const section=t.dataset.go==="general"
       ? $(".general-data")
+      : t.dataset.go==="report-header"
+        ? $("#report-header")
       : t.dataset.go==="documentation"
         ? $("#documentation")
       : /-sec$/.test(t.dataset.go)
@@ -792,6 +1000,17 @@ document.addEventListener("change",e=>{
   if(file) importRecords(file);
   e.target.value="";
 });
+window.addEventListener("beforeinstallprompt",event=>{
+  event.preventDefault();
+  deferredInstallPrompt=event;
+  $("#installApp").classList.remove("hidden");
+});
+window.addEventListener("appinstalled",()=>{
+  deferredInstallPrompt=null;
+  $("#installApp").classList.add("hidden");
+  $("#status").textContent="Application installée sur cet appareil.";
+});
 migrateActiveAccountData();
 build();
 loadCurrentDraft();
+enableOfflineApp();

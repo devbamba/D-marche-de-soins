@@ -24,6 +24,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .top h1{margin:0;font-size:1.3rem;color:#fff}
 .nav{margin:0 0 16px}
 .menu-toggle{display:flex;align-items:center;justify-content:center;width:42px;height:42px;margin-left:auto;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:#fff;cursor:pointer}
+.install-app{display:block;margin:0 0 12px auto;padding:7px 10px;font-size:.8rem}
 .menu-toggle:hover{background:#ffffff26;border-color:#ffffff80}
 .menu-icon{position:relative;display:block;width:21px;height:18px}
 .menu-icon span{position:absolute;left:0;width:100%;height:2px;border-radius:2px;background:currentColor;transition:top .22s ease,transform .22s ease,opacity .16s ease}
@@ -109,7 +110,13 @@ textarea{min-height:84px;resize:vertical}
 .dyn-row .fld+.fld{margin-top:8px}
 .int-obj,.plan-recap{margin:0 0 8px;white-space:pre-wrap}
 .dyn-h{font-size:1rem;margin:16px 0 8px;color:var(--acc)}
+.diag-format{margin:0 0 10px;padding:9px 11px;border-left:3px solid var(--acc);border-radius:4px;background:var(--soft);font-size:.88rem;color:var(--mute)}
 fieldset>.lab{margin:0 0 8px}
+.need-suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.need-suggestions:empty{display:none}
+.suggestion-title{flex-basis:100%;margin:0;color:var(--mute);font-size:.88rem}
+.need-suggestion,.relation-diagnosis{font-size:.85rem}
+.relation-diagnosis:disabled{opacity:.55;cursor:not-allowed}
 
 /* ===== Aperçu PDF ===== */
 .print-report{display:none}
@@ -127,6 +134,13 @@ fieldset>.lab{margin:0 0 8px}
 .pdf-preview .print-report table{width:100%;border-collapse:collapse}
 .pdf-preview .print-report th,.pdf-preview .print-report td{padding:5pt 6pt;border:1px solid #ccc;text-align:left;vertical-align:top;white-space:pre-wrap}
 .pdf-preview .print-report th{width:32%;background:#f2f2f2}
+.pdf-preview .print-report .report-grid-table{table-layout:fixed}
+.pdf-preview .print-report .report-grid-table th{width:auto}
+.pdf-preview .print-report .plan-table th:nth-child(1){width:16%}
+.pdf-preview .print-report .plan-table th:nth-child(2){width:19%}
+.pdf-preview .print-report .plan-table th:nth-child(3){width:21%}
+.pdf-preview .print-report .plan-table th:nth-child(4){width:24%}
+.pdf-preview .print-report .plan-table th:nth-child(5){width:20%}
 
 /* ===== Écrans étroits, mouvement réduit, impression ===== */
 @media (max-width:700px){.bh{display:none}.br{grid-template-columns:1fr}.cap{display:block}}
@@ -138,7 +152,7 @@ fieldset>.lab{margin:0 0 8px}
 }
 @media (prefers-reduced-motion:reduce){.menu-icon span{transition:none}}
 @media print{
-  @page{margin:16mm}
+  @page{size:landscape;margin:12mm}
   body{background:#fff}
   .wrap{max-width:none;padding:0}
   .wrap>*:not(#pdfPreview){display:none!important}
@@ -152,5 +166,13 @@ fieldset>.lab{margin:0 0 8px}
   #printReport tr{break-inside:avoid}
   #printReport th,#printReport td{padding:4pt 6pt;border:1px solid #ccc;text-align:left;vertical-align:top;white-space:pre-wrap}
   #printReport th{width:32%;background:#f2f2f2}
+  #printReport .report-grid-table{table-layout:fixed}
+  #printReport .report-grid-table th{width:auto}
+  #printReport .report-grid-table thead{display:table-header-group}
+  #printReport .plan-table th:nth-child(1){width:16%}
+  #printReport .plan-table th:nth-child(2){width:19%}
+  #printReport .plan-table th:nth-child(3){width:21%}
+  #printReport .plan-table th:nth-child(4){width:24%}
+  #printReport .plan-table th:nth-child(5){width:20%}
   #printReport .report-section{break-inside:auto}
 }

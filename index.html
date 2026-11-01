@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b7a9e">
 <title>Démarche de soins</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,6 +17,7 @@
     <div><h1>Démarche de soins</h1></div>
     <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="nav" aria-label="Ouvrir le menu de navigation"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
   </header>
+  <button type="button" class="btn alt install-app hidden" id="installApp">Installer l’application</button>
   <nav id="nav" class="nav hidden" aria-label="Navigation principale"></nav>
   <section id="recordsPanel" class="records-panel" aria-labelledby="recordsHeading">
     <div class="records-heading">
