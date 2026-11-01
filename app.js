@@ -60,11 +60,9 @@ const S = [
 /* ===== 2. ÉTAT ===== */
 const data = {};
 const $ = s => document.querySelector(s);
-const STORAGE_USERS = "demarcheSoins.demo.users.v1";
-const SESSION_USER = "demarcheSoins.demo.user";
-let currentUser = null;
+const RECORDS_KEY = "demarcheSoins.local.records.v1";
+const DRAFT_KEY = "demarcheSoins.local.draft.v1";
 let currentRecordId = null;
-let authMode = "login";
 
 function readJSON(key, fallback){
   const raw = localStorage.getItem(key);
@@ -73,93 +71,22 @@ function readJSON(key, fallback){
 function makeId(){
   return crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
 }
-function bytesToBase64(bytes){
-  return btoa(String.fromCharCode(...new Uint8Array(bytes)));
-}
-async function passwordHash(password,salt){
-  if(!crypto.subtle) throw new Error("Le navigateur ne permet pas le hachage sécurisé du mot de passe. Ouvrez l’application dans un navigateur récent via localhost.");
-  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);
-  const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:120000,hash:"SHA-256"},key,256);
-  return bytesToBase64(bits);
-}
-function recordsKey(){ return `demarcheSoins.demo.records.${currentUser.id}`; }
-function draftKey(){ return `demarcheSoins.demo.draft.${currentUser.id}`; }
+function recordsKey(){ return RECORDS_KEY; }
+function draftKey(){ return DRAFT_KEY; }
 function readRecords(){ return readJSON(recordsKey(),[]); }
-function setAuthMessage(text){ $("#authMessage").textContent=text; }
 function setAppMessage(text){ $("#msg").textContent=text; }
-
-function setAuthMode(mode){
-  authMode=mode;
-  const registering=mode==="register";
-  $("#confirmPasswordField").classList.toggle("hidden",!registering);
-  $("#authPasswordConfirm").required=registering;
-  $("#authPassword").autocomplete=registering?"new-password":"current-password";
-  $("#authSubmit").textContent=registering?"Créer mon compte":"Se connecter";
-  $("#showLogin").classList.toggle("active",!registering);
-  $("#showRegister").classList.toggle("active",registering);
-  setAuthMessage("");
-}
-function activateAccount(user){
-  currentUser=user;
-  $("#authScreen").classList.add("hidden");
-  $("#appShell").classList.remove("hidden");
-  $("#accountLabel").textContent=user.email;
-  $("#authForm").reset();
-  setAppMessage("");
-  loadCurrentDraft();
-  try{ sessionStorage.setItem(SESSION_USER,user.id); }
-  catch(error){ setAppMessage(`Compte ouvert, mais la session ne peut pas être mémorisée : ${error instanceof Error?error.message:"stockage indisponible"}`); }
-}
-function signOut(){
-  sessionStorage.removeItem(SESSION_USER);
-  currentUser=null;
-  currentRecordId=null;
-  $("#appShell").classList.add("hidden");
-  $("#authScreen").classList.remove("hidden");
-  setAuthMode("login");
-  setAuthMessage("Vous êtes déconnecté(e).");
-}
-function initAuth(){
-  $("#showLogin").addEventListener("click",()=>setAuthMode("login"));
-  $("#showRegister").addEventListener("click",()=>setAuthMode("register"));
-  $("#authForm").addEventListener("submit",async e=>{
-    e.preventDefault();
-    const email=$("#authEmail").value.trim().toLowerCase();
-    const password=$("#authPassword").value;
-    setAuthMessage("");
-    try{
-      const users=readJSON(STORAGE_USERS,[]);
-      if(!Array.isArray(users)) throw new Error("Les comptes locaux sont illisibles. Les données du navigateur ont peut-être été modifiées.");
-      if(authMode==="register"){
-        if(password.length<8){ setAuthMessage("Choisissez un mot de passe d’au moins 8 caractères."); return; }
-        if(password!==$("#authPasswordConfirm").value){ setAuthMessage("Les mots de passe ne correspondent pas."); return; }
-        if(users.some(u=>u.email===email)){ setAuthMessage("Un compte existe déjà avec cette adresse e-mail."); return; }
-        const salt=crypto.getRandomValues(new Uint8Array(16));
-        const user={id:makeId(),email,salt:bytesToBase64(salt),passwordHash:await passwordHash(password,salt)};
-        users.push(user);
-        localStorage.setItem(STORAGE_USERS,JSON.stringify(users));
-        activateAccount(user);
-      }else{
-        const user=users.find(u=>u.email===email);
-        if(!user){ setAuthMessage("Adresse e-mail ou mot de passe incorrect."); return; }
-        const computed=await passwordHash(password,Uint8Array.from(atob(user.salt),c=>c.charCodeAt(0)));
-        if(computed!==user.passwordHash){ setAuthMessage("Adresse e-mail ou mot de passe incorrect."); return; }
-        activateAccount(user);
-      }
-    }catch(error){
-      setAuthMessage(error instanceof Error ? error.message : "Impossible d’accéder aux comptes dans ce navigateur.");
-    }
-  });
-  $("#logout").addEventListener("click",signOut);
-  const sessionId=sessionStorage.getItem(SESSION_USER);
-  if(sessionId){
-    try{
-      const user=readJSON(STORAGE_USERS,[]).find(u=>u.id===sessionId);
-      if(user){ activateAccount(user); return; }
-      sessionStorage.removeItem(SESSION_USER);
-    }catch(error){
-      setAuthMessage(error instanceof Error ? error.message : "Impossible de lire le compte local.");
-    }
+function migrateActiveAccountData(){
+  const userId=sessionStorage.getItem("demarcheSoins.demo.user");
+  if(!userId) return;
+  try{
+    const users=readJSON("demarcheSoins.demo.users.v1",[]);
+    if(!Array.isArray(users)||!users.some(user=>user.id===userId)) return;
+    const oldRecords=localStorage.getItem(`demarcheSoins.demo.records.${userId}`);
+    const oldDraft=localStorage.getItem(`demarcheSoins.demo.draft.${userId}`);
+    if(localStorage.getItem(RECORDS_KEY)===null&&oldRecords!==null) localStorage.setItem(RECORDS_KEY,oldRecords);
+    if(localStorage.getItem(DRAFT_KEY)===null&&oldDraft!==null) localStorage.setItem(DRAFT_KEY,oldDraft);
+  }catch(error){
+    setAppMessage(`Les anciens dossiers de démonstration n’ont pas pu être importés : ${error instanceof Error?error.message:"stockage local indisponible"}`);
   }
 }
 
@@ -349,7 +276,6 @@ function refreshRecords(){
   });
 }
 function saveDraft(){
-  if(!currentUser) return;
   try{
     const hasData=Object.keys(data).length>0;
     if(!hasData&&!currentRecordId){
@@ -570,7 +496,6 @@ function validateData(){
   return true;
 }
 function save(){
-  if(!currentUser){ setAppMessage("Connectez-vous pour enregistrer un dossier."); return; }
   if(!validateData()) return;
   try{
     const records=readRecords();
@@ -590,5 +515,6 @@ function save(){
     setAppMessage(`Impossible d’enregistrer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
   }
 }
+migrateActiveAccountData();
 build();
-initAuth();
+loadCurrentDraft();

@@ -7,44 +7,13 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main id="authScreen" class="auth-screen">
-  <section class="auth-card">
-    <h1>Accès à la démarche de soins</h1>
-    <p class="demo-warning">Mode de démonstration : les comptes et dossiers sont enregistrés dans ce navigateur uniquement. Utilisez exclusivement des données fictives. Ce mode ne fournit pas une sécurité adaptée aux données réelles de santé.</p>
-    <p class="auth-hint">Créez un compte ou connectez-vous pour accéder au formulaire et à son menu de navigation.</p>
-    <div class="auth-tabs" role="group" aria-label="Choisir une action">
-      <button type="button" class="btn alt" id="showLogin">Se connecter</button>
-      <button type="button" class="btn alt" id="showRegister">Créer un compte</button>
-    </div>
-    <form id="authForm">
-      <div class="fld">
-        <label for="authEmail">Adresse e-mail</label>
-        <input id="authEmail" name="email" type="email" autocomplete="username" required>
-      </div>
-      <div class="fld">
-        <label for="authPassword">Mot de passe (8 caractères minimum)</label>
-        <input id="authPassword" name="password" type="password" autocomplete="current-password" minlength="8" required>
-      </div>
-      <div class="fld hidden" id="confirmPasswordField">
-        <label for="authPasswordConfirm">Confirmer le mot de passe</label>
-        <input id="authPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8">
-      </div>
-      <button type="submit" class="btn" id="authSubmit">Se connecter</button>
-    </form>
-    <p id="authMessage" class="msg" role="alert" aria-live="polite"></p>
-  </section>
-</main>
-<div class="wrap hidden" id="appShell">
+<div class="wrap">
   <header class="top">
     <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#fff"/><path d="M6 25h10l4-11 7 22 5-15 3 4h7" fill="none" stroke="#0b7a9e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <div><h1>Démarche de soins</h1></div>
     <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="nav" aria-label="Ouvrir le menu de navigation"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
   </header>
   <nav id="nav" class="nav hidden" aria-label="Navigation principale"></nav>
-  <div class="account-bar">
-    <span id="accountLabel"></span>
-    <button type="button" class="btn alt" id="logout">Se déconnecter</button>
-  </div>
   <section id="recordsPanel" class="records-panel" aria-labelledby="recordsHeading">
     <div class="records-heading">
       <h2 id="recordsHeading">Dossiers enregistrés</h2>
