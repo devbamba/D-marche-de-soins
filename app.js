@@ -65,6 +65,13 @@ const DRAFT_KEY = "demarcheSoins.local.draft.v1";
 const APPEARANCE_KEY = "demarcheSoins.appearance.v1";
 let currentRecordId = null;
 let deferredInstallPrompt = null;
+let currentWizardStep = 0;
+const WIZARD_STEPS = [
+  {title:"Recueil",description:"Rassemblez les renseignements généraux et les données sur les besoins fondamentaux."},
+  {title:"Analyse",description:"Repérez les besoins non satisfaits, établissez les liens et formulez les diagnostics."},
+  {title:"Planification",description:"Définissez les objectifs, les interventions et le plan de soins."},
+  {title:"Finalisation",description:"Relisez les consignes, enregistrez le dossier ou préparez son export PDF."}
+];
 
 function applyAppearance(appearance){
   const root=document.documentElement;
@@ -186,6 +193,7 @@ function build(){
       <p>Mode d’emploi rapide :</p>
       <ul>
         <li>Renseignez l’en-tête du document puis les sections ; les champs marqués d’un astérisque (*) sont obligatoires.</li>
+        <li>Suivez les quatre étapes avec les boutons « Continuer » et « Précédent » ; vous pouvez aussi utiliser les étapes en haut pour naviguer directement.</li>
         <li>Les indicateurs affichent le nombre de champs renseignés par section ; une alerte signale les besoins non satisfaits sans objectif.</li>
         <li>Cliquez sur « Enregistrer le dossier » : il apparaît dans « Dossiers enregistrés ».</li>
         <li>« Exporter le dossier en PDF » ouvre un aperçu en paysage, à imprimer ou à enregistrer.</li>
@@ -199,7 +207,95 @@ function build(){
     </div></fieldset>`;
   $("#actions").innerHTML = `<button type="button" class="btn alt" id="exportPdf">Exporter le dossier en PDF</button><button type="button" class="btn" id="save">Enregistrer le dossier</button>`;
   renderLists();
+  setupWizard();
   update();
+}
+function setupWizard(){
+  const form=$("#form");
+  const groups=[
+    ["#report-header",".general-data",`fieldset[data-s="${S.length}"]`],
+    ["#nonsat-sec","#relation-sec","#diagnostics-sec"],
+    ["#objectifs-sec","#interventions-sec","#pm-sec","#plan-sec"],
+    ["#documentation"]
+  ];
+  const wizard=document.createElement("div");
+  wizard.className="wizard";
+  wizard.innerHTML=`<nav class="wizard-stepper" aria-label="Étapes de la démarche"></nav><div class="wizard-stages"></div>`;
+  const stepper=wizard.querySelector(".wizard-stepper");
+  WIZARD_STEPS.forEach((step,index)=>{
+    const button=document.createElement("button");
+    button.type="button";
+    button.className="wizard-step-button";
+    button.dataset.wizardGoto=String(index);
+    button.innerHTML=`<span class="wizard-step-number">${index+1}</span><span class="wizard-step-label">${step.title}</span>`;
+    stepper.append(button);
+  });
+  const stages=wizard.querySelector(".wizard-stages");
+  groups.forEach((selectors,index)=>{
+    const stage=document.createElement("section");
+    stage.className="wizard-stage";
+    stage.dataset.wizardStep=String(index);
+    stage.setAttribute("aria-labelledby",`wizard-title-${index}`);
+    const heading=document.createElement("div");
+    heading.className="wizard-stage-heading";
+    heading.innerHTML=`<p>Étape ${index+1} sur ${WIZARD_STEPS.length}</p><h2 id="wizard-title-${index}">${WIZARD_STEPS[index].title}</h2><span>${WIZARD_STEPS[index].description}</span>`;
+    stage.append(heading);
+    if(index===3){
+      const review=document.createElement("section");
+      review.className="wizard-review";
+      review.setAttribute("aria-labelledby","wizard-review-title");
+      review.innerHTML="<h3 id=\"wizard-review-title\">Récapitulatif du dossier</h3><dl data-wizard-review></dl>";
+      stage.append(review);
+    }
+    selectors.forEach(selector=>{
+      const element=form.querySelector(selector);
+      if(element) stage.append(element);
+    });
+    if(index===3){
+      const summary=document.createElement("div");
+      summary.className="wizard-finish-note";
+      summary.innerHTML="<strong>Votre démarche est prête à être relue.</strong><span>Enregistrez le dossier dans ce navigateur ou ouvrez l’aperçu pour l’imprimer ou l’enregistrer en PDF.</span>";
+      stage.append(summary,$("#actions"));
+    }
+    const controls=document.createElement("div");
+    controls.className="wizard-controls";
+    const previous=document.createElement("button");
+    previous.type="button";
+    previous.className="btn alt wizard-previous";
+    previous.dataset.wizardPrevious="";
+    previous.textContent="← Précédent";
+    const next=document.createElement("button");
+    next.type="button";
+    next.className="btn wizard-next";
+    next.dataset.wizardNext="";
+    next.textContent=index===WIZARD_STEPS.length-1?"Terminer":"Continuer →";
+    controls.append(previous,next);
+    stage.append(controls);
+    stages.append(stage);
+  });
+  form.replaceChildren(wizard);
+  setWizardStep(0,{scroll:false});
+}
+function setWizardStep(index,{scroll=true}={}){
+  if(!Number.isInteger(index)||index<0||index>=WIZARD_STEPS.length) return;
+  currentWizardStep=index;
+  document.querySelectorAll(".wizard-stage").forEach(stage=>{
+    const active=Number(stage.dataset.wizardStep)===index;
+    stage.classList.toggle("hidden",!active);
+    stage.hidden=!active;
+  });
+  document.querySelectorAll(".wizard-step-button").forEach(button=>{
+    const step=Number(button.dataset.wizardGoto);
+    button.classList.toggle("is-current",step===index);
+    button.classList.toggle("is-complete",step<index);
+    if(step===index) button.setAttribute("aria-current","step");
+    else button.removeAttribute("aria-current");
+  });
+  document.querySelectorAll(".wizard-previous").forEach(button=>button.disabled=index===0);
+  document.querySelectorAll(".wizard-next").forEach(button=>{
+    button.classList.toggle("hidden",index===WIZARD_STEPS.length-1);
+  });
+  if(scroll) $("#form").scrollIntoView({behavior:"smooth",block:"start"});
 }
 function update(){
   // champs conditionnels
@@ -216,6 +312,7 @@ function update(){
   updatePlanLabels();
   updateProgress();
   updateObjectiveAlert();
+  updateWizardReview();
 }
 function calcIMC(){
   const box=$("#imcBox"); if(!box) return;
@@ -406,6 +503,7 @@ function loadIntoForm(values,recordId){
   document.querySelectorAll(".section-details, .bes").forEach(details=>{ details.open=false; });
   $("#out").classList.add("hidden");
   setAppMessage("");
+  setWizardStep(0,{scroll:false});
   update();
 }
 function startNewRecord(){
@@ -799,6 +897,38 @@ function updateObjectiveAlert(){
     ?`Objectif à renseigner pour ${missing.length===1?"ce besoin":"ces besoins"} non satisfait${missing.length===1?"":"s"} : ${missing.join(" ; ")}.`
     :"";
 }
+function updateWizardReview(){
+  const review=document.querySelector("[data-wizard-review]");
+  if(!review) return;
+  const patient=[data.prenom,data.nom].map(value=>String(value||"").trim()).filter(Boolean).join(" ");
+  const selected=[];
+  for(let i=0;i<rowCount("nonsat");i++){
+    if(isFilled(`nonsat_${i}_besoin`)) selected.push(i);
+  }
+  const missingObjectives=selected.filter(i=>!isFilled(`obj_${i}_txt`)).length;
+  const interventions=selected.filter(i=>isFilled(`int_${i}_txt`)).length;
+  const requiredMissing=missingFields().length;
+  const items=[
+    ["Patient",patient||"À renseigner",!patient],
+    ["Champs obligatoires manquants",String(requiredMissing),requiredMissing>0],
+    ["Besoins fondamentaux documentés",`${filledNeeds().length} / ${BESOINS.length}`,false],
+    ["Besoins non satisfaits retenus",String(selected.length),false],
+    ["Objectifs restant à formuler",String(missingObjectives),missingObjectives>0],
+    ["Besoins avec interventions",`${interventions} / ${selected.length}`,selected.length>interventions]
+  ];
+  review.replaceChildren();
+  items.forEach(([label,value,attention])=>{
+    const wrapper=document.createElement("div");
+    wrapper.className="wizard-review-item";
+    const term=document.createElement("dt");
+    term.textContent=label;
+    const description=document.createElement("dd");
+    description.textContent=value;
+    if(attention) description.classList.add("needs-attention");
+    wrapper.append(term,description);
+    review.append(wrapper);
+  });
+}
 function updateNeedSuggestions(){
   const box=document.querySelector("[data-need-suggestions]");
   if(!box) return;
@@ -998,6 +1128,22 @@ document.addEventListener("input",e=>{
   refreshValidation();
 });
 document.addEventListener("click",e=>{
+  if(e.target.closest("[data-open-app]")){
+    $("#landingPage").classList.add("hidden");
+    $("#appView").classList.remove("hidden");
+    window.scrollTo({top:0,behavior:"auto"});
+    return;
+  }
+  if(e.target.closest("#backHome")){
+    $("#appView").classList.add("hidden");
+    $("#landingPage").classList.remove("hidden");
+    window.scrollTo({top:0,behavior:"auto"});
+    return;
+  }
+  const wizardGoto=e.target.closest("[data-wizard-goto]");
+  if(wizardGoto){ setWizardStep(Number(wizardGoto.dataset.wizardGoto)); return; }
+  if(e.target.closest("[data-wizard-previous]")){ setWizardStep(currentWizardStep-1); return; }
+  if(e.target.closest("[data-wizard-next]")){ setWizardStep(currentWizardStep+1); return; }
   const recordButton=e.target.closest("[data-record-action]");
   if(recordButton){
     if(recordButton.dataset.recordAction==="open") openSavedRecord(recordButton.dataset.recordId);
@@ -1074,6 +1220,8 @@ document.addEventListener("click",e=>{
       : +t.dataset.go<S.length
         ? document.querySelector(`.section-details[data-s="${t.dataset.go}"]`)
         : document.querySelector(`fieldset[data-s="${t.dataset.go}"]`);
+    const wizardStage=section.closest(".wizard-stage");
+    if(wizardStage) setWizardStep(Number(wizardStage.dataset.wizardStep),{scroll:false});
     if(section.matches(".section-details")) section.open=true;
     $("#nav").classList.add("hidden");
     $("#menuToggle").setAttribute("aria-expanded","false");
@@ -1108,6 +1256,7 @@ function validateData(){
     const firstField=missing[0];
     const section=S.findIndex(section=>section.f.includes(firstField));
     if(section>=0){
+      setWizardStep(0,{scroll:false});
       const details=document.querySelector(`.section-details[data-s="${section}"]`);
       details.open=true;
       details.scrollIntoView({behavior:"smooth"});
