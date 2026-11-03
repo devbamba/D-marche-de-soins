@@ -14,7 +14,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",sys
 .wizard-step-button{display:flex;align-items:center;gap:9px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--mute);font:inherit;text-align:left;cursor:pointer}
 .wizard-step-button:hover{border-color:var(--acc)}
 .wizard-step-number{display:grid;flex:none;place-items:center;width:27px;height:27px;border-radius:50%;background:var(--soft);color:var(--mute);font-size:.8rem;font-weight:700}
-.wizard-step-label{overflow:hidden;font-size:.81rem;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+.wizard-step-label{min-width:0;font-size:.81rem;font-weight:650;line-height:1.25;overflow-wrap:normal;white-space:normal}
 .wizard-step-button.is-current{border-color:var(--acc);background:var(--soft);color:var(--acc)}
 .wizard-step-button.is-current .wizard-step-number,.wizard-step-button.is-complete .wizard-step-number{background:var(--acc);color:var(--acc-ink)}
 .wizard-stage-heading{margin:0 0 16px;padding:4px 2px}
@@ -157,10 +157,10 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
   .landing-bottom{margin-right:24px;margin-left:24px}
 }
 @media (max-width:650px){
-  .wizard-stepper{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-bottom:14px}
-  .wizard-step-button{justify-content:center;padding:7px 4px}
+  .wizard-stepper{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-bottom:14px}
+  .wizard-step-button{justify-content:flex-start;padding:8px}
   .wizard-step-number{width:24px;height:24px;font-size:.74rem}
-  .wizard-step-label{font-size:.68rem}
+  .wizard-step-label{font-size:.76rem}
   .wizard-stage-heading h2{font-size:1.35rem}
   .wizard-stage-heading span{font-size:.84rem}
   .wizard-controls .btn{min-width:0;padding:10px 13px}
@@ -215,9 +215,9 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
   .landing-footer{flex-direction:column;gap:5px;padding:0 20px 20px}
 }
 @media (max-width:380px){
-  .wizard-stepper{gap:3px}
-  .wizard-step-button{flex-direction:column;gap:3px;padding:5px 2px}
-  .wizard-step-label{max-width:100%;font-size:.61rem}
+  .wizard-stepper{gap:6px}
+  .wizard-step-button{gap:7px;padding:7px}
+  .wizard-step-label{font-size:.72rem}
   .landing-brand{gap:7px;font-size:.82rem}
   .landing-brand svg{width:30px;height:30px}
   .landing-nav-cta{font-size:.72rem}
@@ -283,15 +283,19 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .demo-warning{padding:10px 12px;border-left:4px solid var(--warn);border-radius:4px;background:var(--soft);font-size:.88rem}
 .demo-warning.compact{margin:8px 0;font-size:.8rem}
 .records-panel{margin-bottom:18px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:10px}
-.records-panel .btn{padding:7px 11px;font-size:.85rem}
+.records-panel .btn{padding:8px 12px;font-size:.85rem}
 .records-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.records-heading h2{margin:0;font-size:1.05rem}
-.records-tools{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.records-heading h2{margin:0;font-size:1.3rem}
+.records-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
 .record-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .record-info,.record-actions{display:flex;align-items:center;gap:8px}
 .record-info{flex-direction:column;align-items:flex-start}
 .record-info small,.empty-records{color:var(--mute);font-size:.82rem}
 .record-actions{flex-wrap:wrap}
+@media (max-width:560px){
+  .records-heading{align-items:flex-start;flex-direction:column}
+  .records-actions{display:grid;grid-template-columns:1fr}
+}
 
 /* ===== Formulaire ===== */
 fieldset{border:1px solid var(--line);border-left:4px solid var(--acc);background:var(--card);border-radius:10px;padding:16px;margin:0 0 16px}
@@ -374,6 +378,10 @@ fieldset>.lab{margin:0 0 8px}
 .pdf-preview .print-report h1{font-size:18pt;margin:0 0 6pt}
 .pdf-preview .print-report h2{font-size:13pt;margin:12pt 0 5pt;padding-bottom:3pt;border-bottom:1px solid #888}
 .pdf-preview .report-date{font-size:9pt;color:#444}
+.pdf-preview .report-identity{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:12px 0 18px;padding:10px 12px;border:1px solid #ccc}
+.pdf-preview .report-identity p{display:flex;align-items:baseline;gap:8px;min-width:0;margin:0}
+.pdf-preview .report-identity strong{flex:none}
+.pdf-preview .report-identity span{flex:1;min-width:24px;min-height:1.35em;border-bottom:1px solid #777;overflow-wrap:anywhere}
 .pdf-preview .print-report table{width:100%;border-collapse:collapse}
 .pdf-preview .print-report th,.pdf-preview .print-report td{padding:5pt 6pt;border:1px solid #ccc;text-align:left;vertical-align:top;white-space:pre-wrap}
 .pdf-preview .print-report th{width:32%;background:#f2f2f2}
@@ -410,6 +418,7 @@ fieldset>.lab{margin:0 0 8px}
   #printReport h1{font-size:18pt;margin:0 0 6pt}
   #printReport h2{font-size:13pt;margin:12pt 0 5pt;padding-bottom:3pt;border-bottom:1px solid #888;break-after:avoid}
   #printReport .report-date{font-size:9pt;color:#444}
+  #printReport .report-identity{break-inside:avoid}
   #printReport table{width:100%;border-collapse:collapse;break-inside:auto}
   #printReport tr{break-inside:avoid}
   #printReport th,#printReport td{padding:4pt 6pt;border:1px solid #ccc;text-align:left;vertical-align:top;white-space:pre-wrap}

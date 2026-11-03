@@ -126,6 +126,12 @@ function closeLandingNavigation({restoreFocus=false}={}){
   $("#landingMenuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
   if(restoreFocus) $("#landingMenuToggle").focus();
 }
+function setRecordsView(show){
+  $("#recordsPanel").classList.toggle("hidden",!show);
+  $("#form").classList.toggle("hidden",show);
+  window.scrollTo({top:0,behavior:"auto"});
+  if(show) $("#recordsHeading").focus();
+}
 
 function readJSON(key, fallback){
   const raw = localStorage.getItem(key);
@@ -176,8 +182,9 @@ function progressBadge(key,label){
 
 function build(){
   $("#nav").innerHTML = `<div class="menu-panel">
+      <p class="menu-group">Dossiers</p>
+      <button type="button" class="menu-item" data-view="records">Mes dossiers enregistrés</button>
       <p class="menu-group">Recueil de données</p>
-      <button type="button" class="menu-item" data-go="report-header">En-tête du document</button>
       <button type="button" class="menu-item" data-go="general">Renseignements généraux</button>
       <button type="button" class="menu-item" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>
       <p class="menu-group">Analyse</p>
@@ -192,25 +199,18 @@ function build(){
       <p class="menu-group">Aide</p>
       <button type="button" class="menu-item" data-go="documentation">Documentation</button>
     </div>`;
-  $("#form").innerHTML = `<fieldset id="report-header"><legend>En-tête du document ${progressBadge("header","En-tête du document")}</legend><div class="grid">
-      <div class="fld"><label for="f_student">Nom de l’étudiant</label><input id="f_student" data-k="student" type="text"></div>
-      <div class="fld"><label for="f_school">École</label><input id="f_school" data-k="school" type="text"></div>
-      <div class="fld"><label for="f_service">Service</label><input id="f_service" data-k="service" type="text"></div>
-      <div class="fld"><label for="f_supervisor">Encadrant</label><input id="f_supervisor" data-k="supervisor" type="text"></div>
-      <div class="fld"><label for="f_reportDate">Date</label><input id="f_reportDate" data-k="reportDate" type="date"></div>
-    </div></fieldset>`
-    +`<fieldset class="general-data"><legend>Renseignements généraux ${progressBadge("general","Renseignements généraux")}</legend><div class="general-sections">${S.map((s,i)=>
+  $("#form").innerHTML = `<fieldset class="general-data"><legend>Renseignements généraux ${progressBadge("general","Renseignements généraux")}</legend><div class="general-sections">${S.map((s,i)=>
     `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span>${progressBadge(`general-${i}`,s.t)}</summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
     +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux ${progressBadge("needs","Données sur les 14 besoins")}</legend>${besoinsHTML()}</fieldset>`
     +stepHTML()
     +`<fieldset id="documentation"><legend>Documentation</legend><div class="documentation-content">
       <p>Mode d’emploi rapide :</p>
       <ul>
-        <li>Renseignez l’en-tête du document puis les sections ; les champs marqués d’un astérisque (*) sont obligatoires.</li>
+        <li>Renseignez les données du patient et les sections ; les champs marqués d’un astérisque (*) sont obligatoires.</li>
         <li>Suivez les quatre étapes avec les boutons « Continuer » et « Précédent » ; vous pouvez aussi utiliser les étapes en haut pour naviguer directement.</li>
         <li>Les indicateurs affichent le nombre de champs renseignés par section ; une alerte signale les besoins non satisfaits sans objectif.</li>
-        <li>Cliquez sur « Enregistrer le dossier » : il apparaît dans « Dossiers enregistrés ».</li>
-        <li>« Exporter le dossier en PDF » ouvre un aperçu en paysage, à imprimer ou à enregistrer.</li>
+        <li>Cliquez sur « Enregistrer le dossier » : retrouvez-le ensuite dans « Mes dossiers enregistrés », accessible depuis le menu de navigation.</li>
+        <li>« Exporter le dossier en PDF » ouvre un aperçu en paysage, à imprimer ou à enregistrer. La fiche comporte des lignes à compléter pour le nom de l’étudiant et son école.</li>
         <li>Dans « Besoins non satisfaits », examinez les propositions provenant des besoins renseignés ; confirmez seulement celles qui sont réellement non satisfaites.</li>
         <li>Dans « Relation entre les éléments », associez un problème et une cause puis préremplissez un diagnostic réel à compléter avec les signes et symptômes.</li>
         <li>« Sauvegarder (JSON) » crée un fichier de secours de tous les dossiers ; « Restaurer » le recharge.</li>
@@ -227,7 +227,7 @@ function build(){
 function setupWizard(){
   const form=$("#form");
   const groups=[
-    ["#report-header",".general-data",`fieldset[data-s="${S.length}"]`],
+    [".general-data",`fieldset[data-s="${S.length}"]`],
     ["#nonsat-sec","#relation-sec","#diagnostics-sec"],
     ["#objectifs-sec","#interventions-sec","#pm-sec","#plan-sec"],
     ["#documentation"]
@@ -532,6 +532,7 @@ function openSavedRecord(id){
     if(!record) throw new Error("Ce dossier n’existe plus dans le stockage local.");
     loadIntoForm(record.data,record.id);
     saveDraft();
+    setRecordsView(false);
     $("#form").scrollIntoView({behavior:"smooth"});
   }catch(error){
     setAppMessage(`Impossible d’ouvrir le dossier : ${error instanceof Error?error.message:"données illisibles"}`);
@@ -622,14 +623,18 @@ function showReportPreview(values){
   generated.className="report-date";
   generated.textContent="Démarche de soins — Document de travail";
   report.append(generated);
-  const headerRows=[
-    ["Nom de l’étudiant",values.student],
-    ["École",values.school],
-    ["Service",values.service||values.lieu],
-    ["Encadrant",values.supervisor],
-    ["Date",values.reportDate?fdate(values.reportDate):""]
-  ];
-  addReportSection(report,"Informations de présentation",headerRows);
+  const identity=document.createElement("div");
+  identity.className="report-identity";
+  [["Nom de l’étudiant",values.student],["École",values.school]].forEach(([label,value])=>{
+    const field=document.createElement("p");
+    const name=document.createElement("strong");
+    name.textContent=`${label} :`;
+    const entry=document.createElement("span");
+    entry.textContent=value||"";
+    field.append(name,entry);
+    identity.append(field);
+  });
+  report.append(identity);
   S.forEach(section=>{
     const entries=section.f.filter(field=>field.ty!=="guide").map(field=>[
       field.l,
@@ -849,9 +854,6 @@ function setProgress(key,filled,total,unit="champs"){
 }
 function isFilled(key){ return String(data[key]||"").trim()!==""; }
 function updateProgress(){
-  const headerKeys=["student","school","service","supervisor","reportDate"];
-  setProgress("header",headerKeys.filter(isFilled).length,headerKeys.length);
-
   let generalFilled=0,generalTotal=0;
   S.forEach((section,index)=>{
     const fields=section.f.filter(field=>field.ty!=="guide"&&(!field.show||field.show(data)));
@@ -1191,8 +1193,11 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#newRecord")){
     if(Object.keys(data).length&&!window.confirm("Commencer un nouveau dossier ? Le brouillon actuel sera effacé, mais les dossiers déjà enregistrés resteront disponibles.")) return;
     startNewRecord();
+    setRecordsView(false);
+    $("#form").scrollIntoView({behavior:"smooth"});
     return;
   }
+  if(e.target.closest("#backToForm")){ setRecordsView(false); return; }
   if(e.target.closest("#exportRecords")){ exportRecords(); return; }
   if(e.target.closest("#importRecords")){ $("#importFile").click(); return; }
   if(e.target.closest("#installApp")){ installApp(); return; }
@@ -1241,11 +1246,14 @@ document.addEventListener("click",e=>{
   if(!e.target.closest(".appearance-menu")&&!e.target.closest("[data-appearance-toggle]")) closeAppearanceMenu();
   const t=e.target.closest("button");
   if(!t) return;
+  if(t.dataset.view==="records"){
+    closeNavigationMenu();
+    setRecordsView(true);
+    return;
+  }
   if(t.dataset.go!==undefined){
     const section=t.dataset.go==="general"
       ? $(".general-data")
-      : t.dataset.go==="report-header"
-        ? $("#report-header")
       : t.dataset.go==="documentation"
         ? $("#documentation")
       : /-sec$/.test(t.dataset.go)
