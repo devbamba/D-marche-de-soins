@@ -66,6 +66,7 @@ const APPEARANCE_KEY = "demarcheSoins.appearance.v1";
 let currentRecordId = null;
 let deferredInstallPrompt = null;
 let currentWizardStep = 0;
+let navigationCloseTimer = null;
 const WIZARD_STEPS = [
   {title:"Recueil",description:"Rassemblez les renseignements généraux et les données sur les besoins fondamentaux."},
   {title:"Analyse",description:"Repérez les besoins non satisfaits, établissez les liens et formulez les diagnostics."},
@@ -112,16 +113,37 @@ function closeAppearanceMenu(){
   document.querySelectorAll(".appearance-menu").forEach(menu=>menu.classList.add("hidden"));
   document.querySelectorAll("[data-appearance-toggle]").forEach(button=>button.setAttribute("aria-expanded","false"));
 }
+function setNavigationGroupOpen(button,open){
+  const nav=$("#nav");
+  nav.querySelectorAll(".menu-group-toggle").forEach(group=>{
+    const expanded=group===button&&open;
+    group.setAttribute("aria-expanded",String(expanded));
+    const submenu=document.getElementById(group.getAttribute("aria-controls"));
+    submenu.classList.toggle("is-open",expanded);
+    submenu.inert=!expanded;
+    submenu.setAttribute("aria-hidden",String(!expanded));
+    if(!expanded) delete group.dataset.hoverOpen;
+  });
+}
 function closeNavigationMenu({restoreFocus=false}={}){
-  $("#nav").classList.add("hidden");
-  $("body").classList.remove("menu-open");
+  const nav=$("#nav");
+  if(navigationCloseTimer) window.clearTimeout(navigationCloseTimer);
+  nav.classList.remove("is-open");
+  nav.inert=true;
+  nav.setAttribute("aria-hidden","true");
+  nav.querySelectorAll(".menu-group-toggle").forEach(button=>{
+    setNavigationGroupOpen(button,false);
+  });
+  navigationCloseTimer=window.setTimeout(()=>{
+    if(!nav.classList.contains("is-open")) nav.classList.add("hidden");
+    navigationCloseTimer=null;
+  },360);
   $("#menuToggle").setAttribute("aria-expanded","false");
   $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
   if(restoreFocus) $("#menuToggle").focus();
 }
 function closeLandingNavigation({restoreFocus=false}={}){
   $("#landingNav").classList.remove("is-open");
-  document.querySelector("[data-close-landing-nav]").classList.add("hidden");
   $("#landingMenuToggle").setAttribute("aria-expanded","false");
   $("#landingMenuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
   if(restoreFocus) $("#landingMenuToggle").focus();
@@ -132,6 +154,20 @@ function setRecordsView(show){
   window.scrollTo({top:0,behavior:"auto"});
   if(show) $("#recordsHeading").focus();
 }
+document.addEventListener("pointerover",e=>{
+  if(e.pointerType!=="mouse") return;
+  const button=e.target.closest("#nav .menu-group-toggle");
+  if(!button||button.closest(".menu-section").contains(e.relatedTarget)) return;
+  setNavigationGroupOpen(button,true);
+  button.dataset.hoverOpen="true";
+});
+document.addEventListener("pointerout",e=>{
+  if(e.pointerType!=="mouse") return;
+  const section=e.target.closest("#nav .menu-section");
+  if(!section||section.contains(e.relatedTarget)) return;
+  const button=section.querySelector(".menu-group-toggle");
+  if(button.dataset.hoverOpen==="true") setNavigationGroupOpen(button,false);
+});
 
 function readJSON(key, fallback){
   const raw = localStorage.getItem(key);
@@ -181,23 +217,20 @@ function progressBadge(key,label){
 }
 
 function build(){
+  $("#nav").inert=true;
+  $("#nav").setAttribute("aria-hidden","true");
+  const menuGroup=(id,title,items)=>`<section class="menu-section">
+      <button type="button" class="menu-group-toggle" aria-expanded="false" aria-controls="menu-submenu-${id}">
+        <span>${title}</span><span class="menu-chevron" aria-hidden="true"></span>
+      </button>
+      <div class="menu-submenu" id="menu-submenu-${id}" aria-hidden="true" inert>${items}</div>
+    </section>`;
   $("#nav").innerHTML = `<div class="menu-panel">
-      <p class="menu-group">Dossiers</p>
-      <button type="button" class="menu-item" data-view="records">Mes dossiers enregistrés</button>
-      <p class="menu-group">Recueil de données</p>
-      <button type="button" class="menu-item" data-go="general">Renseignements généraux</button>
-      <button type="button" class="menu-item" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>
-      <p class="menu-group">Analyse</p>
-      <button type="button" class="menu-item" data-go="nonsat-sec">Besoins non satisfaits</button>
-      <button type="button" class="menu-item" data-go="relation-sec">Relation entre les éléments</button>
-      <button type="button" class="menu-item" data-go="diagnostics-sec">Diagnostics infirmiers</button>
-      <p class="menu-group">Planification</p>
-      <button type="button" class="menu-item" data-go="objectifs-sec">Objectifs de soins</button>
-      <button type="button" class="menu-item" data-go="interventions-sec">Interventions infirmières</button>
-      <button type="button" class="menu-item" data-go="pm-sec">Problèmes médicaux</button>
-      <button type="button" class="menu-item" data-go="plan-sec">Plan de soins</button>
-      <p class="menu-group">Aide</p>
-      <button type="button" class="menu-item" data-go="documentation">Documentation</button>
+      ${menuGroup("records","Dossiers",`<button type="button" class="menu-item" data-view="records">Mes dossiers enregistrés</button>`)}
+      ${menuGroup("collection","Recueil de données",`<button type="button" class="menu-item" data-go="general">Renseignements généraux</button><button type="button" class="menu-item" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>`)}
+      ${menuGroup("analysis","Analyse",`<button type="button" class="menu-item" data-go="nonsat-sec">Besoins non satisfaits</button><button type="button" class="menu-item" data-go="relation-sec">Relation entre les éléments</button><button type="button" class="menu-item" data-go="diagnostics-sec">Diagnostics infirmiers</button>`)}
+      ${menuGroup("planning","Planification",`<button type="button" class="menu-item" data-go="objectifs-sec">Objectifs de soins</button><button type="button" class="menu-item" data-go="interventions-sec">Interventions infirmières</button><button type="button" class="menu-item" data-go="pm-sec">Problèmes médicaux</button><button type="button" class="menu-item" data-go="plan-sec">Plan de soins</button>`)}
+      ${menuGroup("help","Aide",`<button type="button" class="menu-item" data-go="documentation">Documentation</button>`)}
     </div>`;
   $("#form").innerHTML = `<fieldset class="general-data"><legend>Renseignements généraux ${progressBadge("general","Renseignements généraux")}</legend><div class="general-sections">${S.map((s,i)=>
     `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span>${progressBadge(`general-${i}`,s.t)}</summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
@@ -1155,15 +1188,11 @@ document.addEventListener("click",e=>{
   if(landingMenuToggle){
     const open=landingMenuToggle.getAttribute("aria-expanded")!=="true";
     $("#landingNav").classList.toggle("is-open",open);
-    document.querySelector("[data-close-landing-nav]").classList.toggle("hidden",!open);
     landingMenuToggle.setAttribute("aria-expanded",String(open));
     landingMenuToggle.setAttribute("aria-label",open?"Fermer le menu de navigation":"Ouvrir le menu de navigation");
     return;
   }
-  if(e.target.closest("[data-close-landing-nav]")){
-    closeLandingNavigation({restoreFocus:true});
-    return;
-  }
+  if($("#landingNav").classList.contains("is-open")&&!e.target.closest("#landingNav")&&!e.target.closest("#landingMenuToggle")) closeLandingNavigation();
   if(e.target.closest("#landingNav a")) closeLandingNavigation();
   if(e.target.closest("#backHome")){
     $("#appView").classList.add("hidden");
@@ -1230,8 +1259,18 @@ document.addEventListener("click",e=>{
   if(menuToggle){
     closeAppearanceMenu();
     const open=menuToggle.getAttribute("aria-expanded")!=="true";
-    $("#nav").classList.toggle("hidden",!open);
-    $("body").classList.toggle("menu-open",open);
+    const nav=$("#nav");
+    if(open){
+      if(navigationCloseTimer){
+        window.clearTimeout(navigationCloseTimer);
+        navigationCloseTimer=null;
+      }
+      nav.classList.remove("hidden");
+      nav.inert=false;
+      nav.setAttribute("aria-hidden","false");
+      void nav.offsetHeight;
+      nav.classList.add("is-open");
+    }else closeNavigationMenu();
     menuToggle.setAttribute("aria-expanded",String(open));
     menuToggle.setAttribute("aria-label",open?"Fermer le menu de navigation":"Ouvrir le menu de navigation");
     return;
@@ -1246,6 +1285,12 @@ document.addEventListener("click",e=>{
   if(!e.target.closest(".appearance-menu")&&!e.target.closest("[data-appearance-toggle]")) closeAppearanceMenu();
   const t=e.target.closest("button");
   if(!t) return;
+  const menuGroupToggle=t.closest(".menu-group-toggle");
+  if(menuGroupToggle){
+    const open=menuGroupToggle.getAttribute("aria-expanded")!=="true";
+    setNavigationGroupOpen(menuGroupToggle,open);
+    return;
+  }
   if(t.dataset.view==="records"){
     closeNavigationMenu();
     setRecordsView(true);

@@ -48,7 +48,6 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
 .landing-menu-toggle{display:none;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--acc);cursor:pointer}
 .landing-menu-toggle:hover,.landing-menu-toggle[aria-expanded="true"]{background:var(--soft)}
 .landing-nav-title{display:none}
-.landing-nav-backdrop{position:fixed;z-index:49;inset:0;width:100%;height:100%;border:0;background:#10232db3}
 .landing-nav-cta{padding:10px 15px;font-size:.9rem}
 .landing-hero{position:relative;display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);align-items:center;gap:24px;max-width:1220px;min-height:590px;margin:0 auto;padding:30px 32px 65px}
 .landing-hero::before{position:absolute;z-index:0;top:15px;right:-16vw;width:68vw;height:540px;border-radius:48% 0 0 48%;background:linear-gradient(140deg,var(--soft),transparent 75%);content:""}
@@ -166,18 +165,17 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
   .wizard-controls .btn{min-width:0;padding:10px 13px}
   .wizard-review{padding:12px}
   .wizard-review dl{grid-template-columns:1fr}
-  .landing-header{padding:16px;gap:10px}
+  .landing-header{flex-wrap:wrap;padding:16px;gap:10px}
   .landing-brand{font-size:.92rem}
   .landing-brand svg{width:34px;height:34px}
   .landing-menu-toggle{display:flex;width:36px;height:36px}
   .landing-menu-toggle[aria-expanded="true"]{position:fixed;z-index:52;top:16px;left:min(calc(86vw - 52px),308px)}
-  .landing-header .landing-nav{display:none}
-  .landing-header .landing-nav.is-open{position:fixed;z-index:51;top:0;bottom:0;left:0;display:flex;width:min(86vw,360px);height:100vh;height:100dvh;margin:0;padding:24px 20px;align-items:stretch;justify-content:flex-start;flex-direction:column;gap:14px;border-right:1px solid var(--line);border-radius:0 16px 16px 0;background:var(--card);box-shadow:8px 0 28px #0003;animation:menu-slide-in .24s cubic-bezier(.2,.8,.2,1)}
+  .landing-header .landing-nav{display:flex;flex:0 0 100%;max-height:0;margin:0;padding:0;align-items:stretch;justify-content:flex-start;flex-direction:column;gap:0;overflow:hidden;opacity:0;visibility:hidden;transition:max-height .36s ease,padding .36s ease,opacity .22s ease,visibility 0s linear .36s}
+  .landing-header .landing-nav.is-open{max-height:50vh;padding:14px 0 4px;gap:10px;opacity:1;visibility:visible;transition:max-height .36s ease,padding .36s ease,opacity .22s ease,visibility 0s}
   .landing-nav-title{display:block;margin:0 0 8px;color:var(--mute);font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
   .landing-header .landing-nav>a{display:block;padding:12px;border-radius:6px;color:var(--ink);font-size:.95rem}
   .landing-header .landing-nav>a:hover{background:var(--soft);color:var(--acc)}
   .landing-nav-cta{justify-content:center;padding:11px 14px;font-size:.9rem}
-  .landing-nav-backdrop:not(.hidden){display:block}
   .landing-hero{display:flex;min-height:0;flex-direction:column;align-items:stretch;gap:8px;padding:38px 20px 46px}
   .landing-copy{padding:0}
   .landing-copy h1{max-width:520px;font-size:clamp(2.45rem,10vw,3.6rem)}
@@ -243,7 +241,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .top{position:relative;display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,var(--hd1),var(--hd2));color:#fff;border-radius:12px;padding:16px 18px;margin-bottom:16px}
 .top svg{flex:none}
 .top h1{margin:0;font-size:1.3rem;color:#fff}
-.nav{margin:0 0 16px}
+.nav{position:absolute;z-index:20;top:calc(100% + 8px);left:0;right:0;max-height:0;margin:0;overflow:hidden;opacity:0;visibility:hidden;transition:max-height .36s ease,opacity .22s ease,visibility 0s linear .36s}
+.nav.is-open{max-height:min(80vh,720px);overflow-y:auto;overscroll-behavior:contain;opacity:1;visibility:visible;transition:max-height .36s ease,opacity .22s ease,visibility 0s}
 .menu-toggle{display:flex;align-items:center;justify-content:center;width:42px;height:42px;margin-left:auto;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:#fff;cursor:pointer}
 .install-app{display:block;margin:0 0 12px auto;padding:7px 10px;font-size:.8rem}
 .appearance-toggle{display:flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;margin-left:auto;padding:8px;border:1px solid #ffffff80;border-radius:8px;background:transparent;color:#fff;cursor:pointer}
@@ -265,19 +264,22 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .landing-menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(1){top:8px;transform:rotate(45deg)}
 .landing-menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(2){opacity:0}
 .landing-menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(3){top:8px;transform:rotate(-45deg)}
-.menu-panel{width:min(400px,100%);margin-left:auto;padding:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px #0002}
-.menu-item{display:block;width:100%;padding:10px 12px;border:0;border-radius:6px;background:transparent;text-align:left;font:inherit;font-size:.78rem;color:var(--ink);cursor:pointer}
+.menu-panel{width:100%;margin:0;padding:12px;background:color-mix(in srgb,var(--card) 76%,transparent);border:1px solid color-mix(in srgb,var(--line) 75%,transparent);border-radius:0 0 16px 16px;box-shadow:0 12px 30px #0003;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.menu-section+.menu-section{border-top:1px solid color-mix(in srgb,var(--line) 65%,transparent)}
+.menu-group-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px 10px;border:0;border-radius:10px;background:transparent;text-align:left;font:inherit;font-weight:400;color:var(--ink);cursor:pointer}
+.menu-group-toggle:hover,.menu-group-toggle:focus-visible{background:color-mix(in srgb,var(--acc) 10%,transparent)}
+.menu-chevron{flex:none;opacity:0;font-size:1.35rem;line-height:1;transform:translateX(-4px);transition:opacity .18s ease,transform .18s ease}
+.menu-chevron::before{content:"→"}
+.menu-group-toggle:hover .menu-chevron,.menu-group-toggle:focus-visible .menu-chevron,.menu-group-toggle[aria-expanded="true"] .menu-chevron{opacity:1;transform:translateX(0)}
+.menu-submenu{max-height:0;overflow:hidden;opacity:0;visibility:hidden;transition:max-height .28s ease,opacity .2s ease,visibility 0s linear .28s}
+.menu-submenu.is-open{max-height:360px;opacity:1;visibility:visible;transition:max-height .28s ease,opacity .2s ease,visibility 0s}
+.menu-item{display:block;width:100%;padding:10px 12px;border:0;border-radius:6px;background:transparent;text-align:left;font:inherit;font-size:.78rem;font-weight:400;color:var(--ink);cursor:pointer}
+.menu-submenu .menu-item{padding-left:22px}
 .menu-item:hover{background:var(--soft)}
-.menu-group{margin:10px 12px 2px;font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--acc)}
-.menu-group:first-child{margin-top:4px}
 @media (max-width:650px){
-  body.menu-open{overflow:hidden}
-  .nav:not(.hidden){position:fixed;z-index:30;inset:0;margin:0;background:#10232db3;animation:menu-backdrop-in .2s ease-out}
-  .nav:not(.hidden) .menu-panel{position:fixed;top:0;left:0;width:min(86vw,360px);height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;margin:0;padding:20px 12px;overflow-y:auto;border:0;border-right:1px solid var(--line);border-radius:0 16px 16px 0;box-shadow:8px 0 28px #0003;animation:menu-slide-in .24s cubic-bezier(.2,.8,.2,1)}
-  .nav:not(.hidden) .menu-item{padding:12px}
+  .nav.is-open .menu-panel{padding:10px 8px}
+  .nav.is-open .menu-item{padding:12px}
 }
-@keyframes menu-backdrop-in{from{background:#10232d00}to{background:#10232db3}}
-@keyframes menu-slide-in{from{transform:translateX(-100%)}to{transform:translateX(0)}}
 
 /* ===== Dossiers enregistrés ===== */
 .demo-warning{padding:10px 12px;border-left:4px solid var(--warn);border-radius:4px;background:var(--soft);font-size:.88rem}
@@ -403,7 +405,7 @@ fieldset>.lab{margin:0 0 8px}
 }
 @media (prefers-reduced-motion:reduce){
   .menu-icon span{transition:none}
-  .nav:not(.hidden),.nav:not(.hidden) .menu-panel,.landing-nav.is-open{animation:none}
+  .nav,.landing-header .landing-nav{transition:none}
 }
 @media print{
   @page{size:landscape;margin:12mm}
