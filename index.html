@@ -17,10 +17,15 @@
       <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="currentColor"/><path d="M6 25h10l4-11 7 22 5-15 3 4h7" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>Démarche de soins</span>
     </a>
-    <nav class="landing-nav" aria-label="Navigation de présentation">
+    <button type="button" class="landing-menu-toggle" id="landingMenuToggle" aria-expanded="false" aria-controls="landingNav" aria-label="Ouvrir le menu de navigation">
+      <span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
+    <nav class="landing-nav" id="landingNav" aria-label="Navigation de présentation">
+      <span class="landing-nav-title">Navigation</span>
       <a href="#fonctionnalites">Fonctionnalités</a>
       <button type="button" class="btn landing-nav-cta" data-open-app>Ouvrir l’application <span aria-hidden="true">→</span></button>
     </nav>
+    <button type="button" class="landing-nav-backdrop hidden" data-close-landing-nav aria-label="Fermer le menu"></button>
   </header>
   <main id="accueil">
     <section class="landing-hero">
@@ -97,7 +102,7 @@
   <header class="top">
     <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#fff"/><path d="M6 25h10l4-11 7 22 5-15 3 4h7" fill="none" stroke="#0b7a9e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <div><h1>Démarche de soins</h1><button type="button" class="back-home" id="backHome">← Accueil</button></div>
-    <button type="button" class="appearance-toggle" id="appearanceToggle" aria-label="Choisir l’apparence" aria-expanded="false" aria-controls="appearanceMenu" title="Choisir l’apparence">
+    <button type="button" class="appearance-toggle" id="appearanceToggle" data-appearance-toggle aria-label="Choisir l’apparence" aria-expanded="false" aria-controls="appearanceMenu" title="Choisir l’apparence">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5-.04-.99-.12-1.47A7 7 0 0 1 13.47 3.12 9 9 0 0 0 12 3Z"/></svg>
     </button>
     <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="nav" aria-label="Ouvrir le menu de navigation"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>

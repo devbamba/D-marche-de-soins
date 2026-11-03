@@ -109,8 +109,22 @@ function updateAppearanceMenu(appearance){
   });
 }
 function closeAppearanceMenu(){
-  $("#appearanceMenu").classList.add("hidden");
-  $("#appearanceToggle").setAttribute("aria-expanded","false");
+  document.querySelectorAll(".appearance-menu").forEach(menu=>menu.classList.add("hidden"));
+  document.querySelectorAll("[data-appearance-toggle]").forEach(button=>button.setAttribute("aria-expanded","false"));
+}
+function closeNavigationMenu({restoreFocus=false}={}){
+  $("#nav").classList.add("hidden");
+  $("body").classList.remove("menu-open");
+  $("#menuToggle").setAttribute("aria-expanded","false");
+  $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
+  if(restoreFocus) $("#menuToggle").focus();
+}
+function closeLandingNavigation({restoreFocus=false}={}){
+  $("#landingNav").classList.remove("is-open");
+  document.querySelector("[data-close-landing-nav]").classList.add("hidden");
+  $("#landingMenuToggle").setAttribute("aria-expanded","false");
+  $("#landingMenuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
+  if(restoreFocus) $("#landingMenuToggle").focus();
 }
 
 function readJSON(key, fallback){
@@ -1129,11 +1143,26 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("click",e=>{
   if(e.target.closest("[data-open-app]")){
+    closeLandingNavigation();
     $("#landingPage").classList.add("hidden");
     $("#appView").classList.remove("hidden");
     window.scrollTo({top:0,behavior:"auto"});
     return;
   }
+  const landingMenuToggle=e.target.closest("#landingMenuToggle");
+  if(landingMenuToggle){
+    const open=landingMenuToggle.getAttribute("aria-expanded")!=="true";
+    $("#landingNav").classList.toggle("is-open",open);
+    document.querySelector("[data-close-landing-nav]").classList.toggle("hidden",!open);
+    landingMenuToggle.setAttribute("aria-expanded",String(open));
+    landingMenuToggle.setAttribute("aria-label",open?"Fermer le menu de navigation":"Ouvrir le menu de navigation");
+    return;
+  }
+  if(e.target.closest("[data-close-landing-nav]")){
+    closeLandingNavigation({restoreFocus:true});
+    return;
+  }
+  if(e.target.closest("#landingNav a")) closeLandingNavigation();
   if(e.target.closest("#backHome")){
     $("#appView").classList.add("hidden");
     $("#landingPage").classList.remove("hidden");
@@ -1167,10 +1196,11 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#exportRecords")){ exportRecords(); return; }
   if(e.target.closest("#importRecords")){ $("#importFile").click(); return; }
   if(e.target.closest("#installApp")){ installApp(); return; }
-  const appearanceToggle=e.target.closest("#appearanceToggle");
+  const appearanceToggle=e.target.closest("[data-appearance-toggle]");
   if(appearanceToggle){
-    const menu=$("#appearanceMenu");
+    const menu=document.getElementById(appearanceToggle.getAttribute("aria-controls"));
     const open=menu.classList.contains("hidden");
+    closeAppearanceMenu();
     menu.classList.toggle("hidden",!open);
     appearanceToggle.setAttribute("aria-expanded",String(open));
     return;
@@ -1196,16 +1226,19 @@ document.addEventListener("click",e=>{
     closeAppearanceMenu();
     const open=menuToggle.getAttribute("aria-expanded")!=="true";
     $("#nav").classList.toggle("hidden",!open);
+    $("body").classList.toggle("menu-open",open);
     menuToggle.setAttribute("aria-expanded",String(open));
     menuToggle.setAttribute("aria-label",open?"Fermer le menu de navigation":"Ouvrir le menu de navigation");
     return;
   }
-  if(!e.target.closest("#nav")){
-    $("#nav").classList.add("hidden");
-    $("#menuToggle").setAttribute("aria-expanded","false");
-    $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
+  if(e.target.id==="nav"){
+    closeNavigationMenu({restoreFocus:true});
+    return;
   }
-  if(!e.target.closest("#appearanceMenu")&&!e.target.closest("#appearanceToggle")) closeAppearanceMenu();
+  if(!e.target.closest("#nav")){
+    closeNavigationMenu();
+  }
+  if(!e.target.closest(".appearance-menu")&&!e.target.closest("[data-appearance-toggle]")) closeAppearanceMenu();
   const t=e.target.closest("button");
   if(!t) return;
   if(t.dataset.go!==undefined){
@@ -1223,9 +1256,7 @@ document.addEventListener("click",e=>{
     const wizardStage=section.closest(".wizard-stage");
     if(wizardStage) setWizardStep(Number(wizardStage.dataset.wizardStep),{scroll:false});
     if(section.matches(".section-details")) section.open=true;
-    $("#nav").classList.add("hidden");
-    $("#menuToggle").setAttribute("aria-expanded","false");
-    $("#menuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
+    closeNavigationMenu();
     section.scrollIntoView({behavior:"smooth"});
   }
   else if(t.dataset.add) addRow(t.dataset.add);
@@ -1304,9 +1335,15 @@ window.addEventListener("appinstalled",()=>{
   $("#status").textContent="Application installée sur cet appareil.";
 });
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"&&!$("#appearanceMenu").classList.contains("hidden")){
-    closeAppearanceMenu();
-    $("#appearanceToggle").focus();
+  if(e.key==="Escape"){
+    const openAppearance=document.querySelector(".appearance-menu:not(.hidden)");
+    const openNavigation=!$("#nav").classList.contains("hidden");
+    if(openAppearance){
+      const toggle=document.querySelector(`[aria-controls="${openAppearance.id}"]`);
+      closeAppearanceMenu();
+      toggle.focus();
+    }else if($("#landingNav").classList.contains("is-open")) closeLandingNavigation({restoreFocus:true});
+    else if(openNavigation) closeNavigationMenu({restoreFocus:true});
   }
 });
 migrateActiveAccountData();

@@ -39,12 +39,16 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
 
 /* ===== Page de présentation ===== */
 .landing-page{min-height:100vh;overflow:hidden;background:var(--bg);color:var(--ink)}
-.landing-header{max-width:1220px;margin:0 auto;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.landing-header{position:relative;max-width:1220px;margin:0 auto;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px}
 .landing-brand{display:inline-flex;align-items:center;gap:10px;color:var(--ink);font-size:1.04rem;font-weight:750;text-decoration:none}
 .landing-brand svg{width:38px;height:38px;color:var(--acc)}
 .landing-nav{display:flex;align-items:center;gap:28px}
 .landing-nav>a{color:var(--mute);font-size:.92rem;font-weight:600;text-decoration:none}
 .landing-nav>a:hover,.landing-secondary:hover{color:var(--acc)}
+.landing-menu-toggle{display:none;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--acc);cursor:pointer}
+.landing-menu-toggle:hover,.landing-menu-toggle[aria-expanded="true"]{background:var(--soft)}
+.landing-nav-title{display:none}
+.landing-nav-backdrop{position:fixed;z-index:49;inset:0;width:100%;height:100%;border:0;background:#10232db3}
 .landing-nav-cta{padding:10px 15px;font-size:.9rem}
 .landing-hero{position:relative;display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);align-items:center;gap:24px;max-width:1220px;min-height:590px;margin:0 auto;padding:30px 32px 65px}
 .landing-hero::before{position:absolute;z-index:0;top:15px;right:-16vw;width:68vw;height:540px;border-radius:48% 0 0 48%;background:linear-gradient(140deg,var(--soft),transparent 75%);content:""}
@@ -165,9 +169,15 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
   .landing-header{padding:16px;gap:10px}
   .landing-brand{font-size:.92rem}
   .landing-brand svg{width:34px;height:34px}
-  .landing-nav{gap:10px}
-  .landing-nav>a{display:none}
-  .landing-nav-cta{padding:9px 10px;font-size:.78rem}
+  .landing-menu-toggle{display:flex;width:36px;height:36px}
+  .landing-menu-toggle[aria-expanded="true"]{position:fixed;z-index:52;top:16px;left:min(calc(86vw - 52px),308px)}
+  .landing-header .landing-nav{display:none}
+  .landing-header .landing-nav.is-open{position:fixed;z-index:51;top:0;bottom:0;left:0;display:flex;width:min(86vw,360px);height:100vh;height:100dvh;margin:0;padding:24px 20px;align-items:stretch;justify-content:flex-start;flex-direction:column;gap:14px;border-right:1px solid var(--line);border-radius:0 16px 16px 0;background:var(--card);box-shadow:8px 0 28px #0003;animation:menu-slide-in .24s cubic-bezier(.2,.8,.2,1)}
+  .landing-nav-title{display:block;margin:0 0 8px;color:var(--mute);font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .landing-header .landing-nav>a{display:block;padding:12px;border-radius:6px;color:var(--ink);font-size:.95rem}
+  .landing-header .landing-nav>a:hover{background:var(--soft);color:var(--acc)}
+  .landing-nav-cta{justify-content:center;padding:11px 14px;font-size:.9rem}
+  .landing-nav-backdrop:not(.hidden){display:block}
   .landing-hero{display:flex;min-height:0;flex-direction:column;align-items:stretch;gap:8px;padding:38px 20px 46px}
   .landing-copy{padding:0}
   .landing-copy h1{max-width:520px;font-size:clamp(2.45rem,10vw,3.6rem)}
@@ -252,11 +262,22 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(1){top:8px;transform:rotate(45deg)}
 .menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(2){opacity:0}
 .menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(3){top:8px;transform:rotate(-45deg)}
+.landing-menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(1){top:8px;transform:rotate(45deg)}
+.landing-menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(2){opacity:0}
+.landing-menu-toggle[aria-expanded="true"] .menu-icon span:nth-child(3){top:8px;transform:rotate(-45deg)}
 .menu-panel{width:min(400px,100%);margin-left:auto;padding:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px #0002}
 .menu-item{display:block;width:100%;padding:10px 12px;border:0;border-radius:6px;background:transparent;text-align:left;font:inherit;font-size:.78rem;color:var(--ink);cursor:pointer}
 .menu-item:hover{background:var(--soft)}
 .menu-group{margin:10px 12px 2px;font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--acc)}
 .menu-group:first-child{margin-top:4px}
+@media (max-width:650px){
+  body.menu-open{overflow:hidden}
+  .nav:not(.hidden){position:fixed;z-index:30;inset:0;margin:0;background:#10232db3;animation:menu-backdrop-in .2s ease-out}
+  .nav:not(.hidden) .menu-panel{position:fixed;top:0;left:0;width:min(86vw,360px);height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;margin:0;padding:20px 12px;overflow-y:auto;border:0;border-right:1px solid var(--line);border-radius:0 16px 16px 0;box-shadow:8px 0 28px #0003;animation:menu-slide-in .24s cubic-bezier(.2,.8,.2,1)}
+  .nav:not(.hidden) .menu-item{padding:12px}
+}
+@keyframes menu-backdrop-in{from{background:#10232d00}to{background:#10232db3}}
+@keyframes menu-slide-in{from{transform:translateX(-100%)}to{transform:translateX(0)}}
 
 /* ===== Dossiers enregistrés ===== */
 .demo-warning{padding:10px 12px;border-left:4px solid var(--warn);border-radius:4px;background:var(--soft);font-size:.88rem}
@@ -372,7 +393,10 @@ fieldset>.lab{margin:0 0 8px}
   .records-heading{align-items:flex-start;flex-direction:column}
   .pdf-preview .print-report{padding:12px}
 }
-@media (prefers-reduced-motion:reduce){.menu-icon span{transition:none}}
+@media (prefers-reduced-motion:reduce){
+  .menu-icon span{transition:none}
+  .nav:not(.hidden),.nav:not(.hidden) .menu-panel,.landing-nav.is-open{animation:none}
+}
 @media print{
   @page{size:landscape;margin:12mm}
   body{background:#fff}
