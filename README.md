@@ -16,7 +16,7 @@ Le projet s'inscrit dans une volonté de contribuer à la modernisation des outi
 
 ✨ Fonctionnalités actuelles
 
-La première version du projet propose :
+La version actuelle du projet propose :
 
 - Gestion des dossiers : création, consultation et suppression de dossiers.
 - Renseignements généraux : saisie des informations relatives au patient.
@@ -25,6 +25,7 @@ La première version du projet propose :
 - Organisation des observations : distinction entre les données recueillies auprès du patient et celles issues du dossier ou de l'équipe soignante.
 - Histoire de la maladie : aide à la rédaction et à la structuration des informations.
 - Constantes vitales : saisie des paramètres physiologiques et calcul automatique de l'IMC.
+- Analyse et planification : besoins non satisfaits, liens entre les éléments, diagnostics, objectifs, interventions et plan de soins.
 - Sauvegarde locale : conservation des dossiers et reprise du travail dans le navigateur.
 - Prévisualisation et impression : génération d'un document imprimable pouvant être enregistré au format PDF.
 
@@ -46,16 +47,18 @@ Ces évolutions seront développées progressivement, en privilégiant la cohér
 
 🛠️ Technologies utilisées
 
-La première version est développée avec des technologies web fondamentales :
+L’application utilise une architecture de migration progressive :
 
 Technologie| Utilisation
-HTML5| Structure de l'application
+HTML5| Point de montage de l'application
 CSS3| Mise en forme et interface utilisateur
-JavaScript| Logique et interactions
+React| Écrans, formulaire, navigation, dossiers et aperçu imprimable
+JavaScript| Calculs métier, validation, sauvegarde locale et préparation des exports
+Vite| Serveur de développement et génération de la version de production
 LocalStorage| Sauvegarde locale des données
 GitHub Pages| Hébergement de l'application
 
-Le projet privilégie actuellement une architecture légère, sans dépendance à un framework JavaScript.
+Tous les écrans et champs de l'application sont maintenant rendus par React, y compris les 14 besoins, les listes dynamiques d'analyse et de planification, ainsi que l'aperçu du document. Les fonctions métier et de stockage restent en JavaScript et conservent le format des dossiers existants.
 
 💻 Installation et utilisation
 
@@ -69,9 +72,17 @@ Pour tester ou modifier localement :
    
    cd D-marche-de-soins
 
-3. Ouvrir le fichier "index.html" dans un navigateur web.
+3. Installer Node.js 22.12 ou une version plus récente, puis les dépendances et le serveur de développement :
 
-Aucune installation de dépendance n'est nécessaire pour la version actuelle.
+   npm install
+   npm run dev
+
+Pour vérifier la version de production :
+
+   npm run build
+   npm run preview
+
+Le site prêt à être publié est généré dans le dossier `dist/`. Pour GitHub Pages, configurez la source de publication sur **GitHub Actions** ; le workflow du dépôt construit et publie ce dossier. Ne pas ouvrir directement `index.html` : Vite doit compiler les modules React.
 
 ⚠️ Avertissement important
 

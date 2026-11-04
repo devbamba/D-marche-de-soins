@@ -1,3 +1,9 @@
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { NavigationMenu } from "./src/NavigationMenu.jsx";
+import { WizardScreen } from "./src/WizardScreen.jsx";
+import { ReportPreview } from "./src/ReportPreview.jsx";
+
 /* ===== 1. CONFIGURATION : on modifie les champs ici, l’affichage suit ===== */
 const OPT = {
   sexe:["Masculin","Féminin"],
@@ -67,6 +73,10 @@ let currentRecordId = null;
 let deferredInstallPrompt = null;
 let currentWizardStep = 0;
 let navigationCloseTimer = null;
+let navigationRoot = null;
+let navigationResetKey = 0;
+let wizardRoot = null;
+let reportRoot = null;
 const WIZARD_STEPS = [
   {title:"Recueil",description:"Rassemblez les renseignements généraux et les données sur les besoins fondamentaux."},
   {title:"Analyse",description:"Repérez les besoins non satisfaits, établissez les liens et formulez les diagnostics."},
@@ -113,27 +123,13 @@ function closeAppearanceMenu(){
   document.querySelectorAll(".appearance-menu").forEach(menu=>menu.classList.add("hidden"));
   document.querySelectorAll("[data-appearance-toggle]").forEach(button=>button.setAttribute("aria-expanded","false"));
 }
-function setNavigationGroupOpen(button,open){
-  const nav=$("#nav");
-  nav.querySelectorAll(".menu-group-toggle").forEach(group=>{
-    const expanded=group===button&&open;
-    group.setAttribute("aria-expanded",String(expanded));
-    const submenu=document.getElementById(group.getAttribute("aria-controls"));
-    submenu.classList.toggle("is-open",expanded);
-    submenu.inert=!expanded;
-    submenu.setAttribute("aria-hidden",String(!expanded));
-    if(!expanded) delete group.dataset.hoverOpen;
-  });
-}
 function closeNavigationMenu({restoreFocus=false}={}){
   const nav=$("#nav");
   if(navigationCloseTimer) window.clearTimeout(navigationCloseTimer);
   nav.classList.remove("is-open");
   nav.inert=true;
   nav.setAttribute("aria-hidden","true");
-  nav.querySelectorAll(".menu-group-toggle").forEach(button=>{
-    setNavigationGroupOpen(button,false);
-  });
+  if(navigationRoot) navigationRoot.render(createElement(NavigationMenu,{key:++navigationResetKey}));
   navigationCloseTimer=window.setTimeout(()=>{
     if(!nav.classList.contains("is-open")) nav.classList.add("hidden");
     navigationCloseTimer=null;
@@ -149,26 +145,16 @@ function closeLandingNavigation({restoreFocus=false}={}){
   if(restoreFocus) $("#landingMenuToggle").focus();
 }
 function setRecordsView(show){
-  $("#recordsPanel").classList.toggle("hidden",!show);
-  $("#form").classList.toggle("hidden",show);
+  if(show){
+    try{
+      refreshRecords();
+    }catch(error){
+      setAppMessage(`Impossible de charger les dossiers : ${error instanceof Error?error.message:"données illisibles"}`);
+    }
+  }
+  window.dispatchEvent(new CustomEvent("demarche:view",{detail:{view:show?"records":"app"}}));
   window.scrollTo({top:0,behavior:"auto"});
-  if(show) $("#recordsHeading").focus();
 }
-document.addEventListener("pointerover",e=>{
-  if(e.pointerType!=="mouse") return;
-  const button=e.target.closest("#nav .menu-group-toggle");
-  if(!button||button.closest(".menu-section").contains(e.relatedTarget)) return;
-  setNavigationGroupOpen(button,true);
-  button.dataset.hoverOpen="true";
-});
-document.addEventListener("pointerout",e=>{
-  if(e.pointerType!=="mouse") return;
-  const section=e.target.closest("#nav .menu-section");
-  if(!section||section.contains(e.relatedTarget)) return;
-  const button=section.querySelector(".menu-group-toggle");
-  if(button.dataset.hoverOpen==="true") setNavigationGroupOpen(button,false);
-});
-
 function readJSON(key, fallback){
   const raw = localStorage.getItem(key);
   return raw === null ? fallback : JSON.parse(raw);
@@ -201,184 +187,63 @@ function migrateActiveAccountData(){
 }
 
 /* ===== 3. AFFICHAGE ===== */
-function fieldHTML(f){
-  const id = "f_"+f.id, lab = `<label for="${id}" class="${f.req?'req':''}">${f.l}</label>`;
-  let c = "";
-  if(f.ty==="select") c = `<select id="${id}" data-k="${f.id}"><option value="">Choisir…</option>${f.o.map(o=>`<option>${o}</option>`).join("")}</select>`;
-  else if(f.ty==="area") c = `<textarea id="${id}" data-k="${f.id}" ${f.ph?`placeholder="${f.ph}"`:""}></textarea>`;
-  else if(f.ty==="yn") return `<div class="fld" data-f="${f.id}"><span class="lab">${f.l}</span><div class="radios">${["Oui","Non"].map(v=>`<label><input type="radio" name="${f.id}" data-k="${f.id}" value="${v}">${v}</label>`).join("")}</div></div>`;
-  else if(f.ty==="guide") return `<div class="fld full" data-f="guide"><button type="button" class="btn alt" id="guideBtn">Guide de rédaction</button><div id="guidePanel" class="guide hidden"></div></div>`;
-  else if(f.ty==="imc") return `<div class="fld full" data-f="imc"><span class="lab">${f.l}</span><div class="imc" id="imcBox">Renseigner le poids et la taille dans les constantes du jour</div></div>`;
-  else c = `<input id="${id}" data-k="${f.id}" type="${f.ty}" ${f.min!=null?`min="${f.min}"`:""} ${f.max!=null?`max="${f.max}"`:""} ${f.step?`step="${f.step}"`:""} ${f.ph?`placeholder="${f.ph}"`:""}>`;
-  return `<div class="fld ${f.full?'full':''}" data-f="${f.id}">${lab}${c}</div>`;
-}
-function progressBadge(key,label){
-  return `<em class="progress-badge" data-progress="${key}" aria-label="${label} : 0/0"></em>`;
-}
-
 function build(){
   $("#nav").inert=true;
   $("#nav").setAttribute("aria-hidden","true");
-  const menuGroup=(id,title,items)=>`<section class="menu-section">
-      <button type="button" class="menu-group-toggle" aria-expanded="false" aria-controls="menu-submenu-${id}">
-        <span>${title}</span><span class="menu-chevron" aria-hidden="true"></span>
-      </button>
-      <div class="menu-submenu" id="menu-submenu-${id}" aria-hidden="true" inert>${items}</div>
-    </section>`;
-  $("#nav").innerHTML = `<div class="menu-panel">
-      ${menuGroup("records","Dossiers",`<button type="button" class="menu-item" data-view="records">Mes dossiers enregistrés</button>`)}
-      ${menuGroup("collection","Recueil de données",`<button type="button" class="menu-item" data-go="general">Renseignements généraux</button><button type="button" class="menu-item" data-go="${S.length}">Données sur les 14 besoins fondamentaux</button>`)}
-      ${menuGroup("analysis","Analyse",`<button type="button" class="menu-item" data-go="nonsat-sec">Besoins non satisfaits</button><button type="button" class="menu-item" data-go="relation-sec">Relation entre les éléments</button><button type="button" class="menu-item" data-go="diagnostics-sec">Diagnostics infirmiers</button>`)}
-      ${menuGroup("planning","Planification",`<button type="button" class="menu-item" data-go="objectifs-sec">Objectifs de soins</button><button type="button" class="menu-item" data-go="interventions-sec">Interventions infirmières</button><button type="button" class="menu-item" data-go="pm-sec">Problèmes médicaux</button><button type="button" class="menu-item" data-go="plan-sec">Plan de soins</button>`)}
-      ${menuGroup("help","Aide",`<button type="button" class="menu-item" data-go="documentation">Documentation</button>`)}
-    </div>`;
-  $("#form").innerHTML = `<fieldset class="general-data"><legend>Renseignements généraux ${progressBadge("general","Renseignements généraux")}</legend><div class="general-sections">${S.map((s,i)=>
-    `<details class="bes section-details" data-s="${i}"><summary><span>${s.t}</span>${progressBadge(`general-${i}`,s.t)}</summary><div class="grid">${s.f.map(fieldHTML).join("")}</div></details>`).join("")}</div></fieldset>`
-    +`<fieldset data-s="${S.length}"><legend>Données sur les 14 besoins fondamentaux ${progressBadge("needs","Données sur les 14 besoins")}</legend>${besoinsHTML()}</fieldset>`
-    +stepHTML()
-    +`<fieldset id="documentation"><legend>Documentation</legend><div class="documentation-content">
-      <p>Mode d’emploi rapide :</p>
-      <ul>
-        <li>Renseignez les données du patient et les sections ; les champs marqués d’un astérisque (*) sont obligatoires.</li>
-        <li>Suivez les quatre étapes avec les boutons « Continuer » et « Précédent » ; vous pouvez aussi utiliser les étapes en haut pour naviguer directement.</li>
-        <li>Les indicateurs affichent le nombre de champs renseignés par section ; une alerte signale les besoins non satisfaits sans objectif.</li>
-        <li>Cliquez sur « Enregistrer le dossier » : retrouvez-le ensuite dans « Mes dossiers enregistrés », accessible depuis le menu de navigation.</li>
-        <li>« Exporter le dossier en PDF » ouvre un aperçu en paysage, à imprimer ou à enregistrer. La fiche comporte des lignes à compléter pour le nom de l’étudiant et son école.</li>
-        <li>Dans « Besoins non satisfaits », examinez les propositions provenant des besoins renseignés ; confirmez seulement celles qui sont réellement non satisfaites.</li>
-        <li>Dans « Relation entre les éléments », associez un problème et une cause puis préremplissez un diagnostic réel à compléter avec les signes et symptômes.</li>
-        <li>« Sauvegarder (JSON) » crée un fichier de secours de tous les dossiers ; « Restaurer » le recharge.</li>
-        <li>Pour l’installation, ouvrez d’abord l’application en ligne avec une adresse HTTPS : utilisez « Installer l’application » quand le bouton apparaît, ou le menu du navigateur (« Installer » / « Ajouter à l’écran d’accueil »). Sur iPhone/iPad, utilisez Safari puis Partager &gt; Sur l’écran d’accueil.</li>
-        <li>Une première ouverture avec connexion est nécessaire pour mettre l’application en cache. Ensuite, elle peut s’ouvrir hors ligne sur ce même appareil et dans ce même navigateur.</li>
-        <li>Version de démonstration : utilisez uniquement des patients fictifs.</li>
-      </ul>
-    </div></fieldset>`;
-  $("#actions").innerHTML = `<button type="button" class="btn alt" id="exportPdf">Exporter le dossier en PDF</button><button type="button" class="btn" id="save">Enregistrer le dossier</button>`;
-  renderLists();
+  navigationRoot=createRoot($("#nav"));
+  navigationRoot.render(createElement(NavigationMenu));
   setupWizard();
   update();
 }
 function setupWizard(){
-  const form=$("#form");
-  const groups=[
-    [".general-data",`fieldset[data-s="${S.length}"]`],
-    ["#nonsat-sec","#relation-sec","#diagnostics-sec"],
-    ["#objectifs-sec","#interventions-sec","#pm-sec","#plan-sec"],
-    ["#documentation"]
-  ];
-  const wizard=document.createElement("div");
-  wizard.className="wizard";
-  wizard.innerHTML=`<nav class="wizard-stepper" aria-label="Étapes de la démarche"></nav><div class="wizard-stages"></div>`;
-  const stepper=wizard.querySelector(".wizard-stepper");
-  WIZARD_STEPS.forEach((step,index)=>{
-    const button=document.createElement("button");
-    button.type="button";
-    button.className="wizard-step-button";
-    button.dataset.wizardGoto=String(index);
-    button.innerHTML=`<span class="wizard-step-number">${index+1}</span><span class="wizard-step-label">${step.title}</span>`;
-    stepper.append(button);
-  });
-  const stages=wizard.querySelector(".wizard-stages");
-  groups.forEach((selectors,index)=>{
-    const stage=document.createElement("section");
-    stage.className="wizard-stage";
-    stage.dataset.wizardStep=String(index);
-    stage.setAttribute("aria-labelledby",`wizard-title-${index}`);
-    const heading=document.createElement("div");
-    heading.className="wizard-stage-heading";
-    heading.innerHTML=`<p>Étape ${index+1} sur ${WIZARD_STEPS.length}</p><h2 id="wizard-title-${index}">${WIZARD_STEPS[index].title}</h2><span>${WIZARD_STEPS[index].description}</span>`;
-    stage.append(heading);
-    if(index===3){
-      const review=document.createElement("section");
-      review.className="wizard-review";
-      review.setAttribute("aria-labelledby","wizard-review-title");
-      review.innerHTML="<h3 id=\"wizard-review-title\">Récapitulatif du dossier</h3><dl data-wizard-review></dl>";
-      stage.append(review);
-    }
-    selectors.forEach(selector=>{
-      const element=form.querySelector(selector);
-      if(element) stage.append(element);
-    });
-    if(index===3){
-      const summary=document.createElement("div");
-      summary.className="wizard-finish-note";
-      summary.innerHTML="<strong>Votre démarche est prête à être relue.</strong><span>Enregistrez le dossier dans ce navigateur ou ouvrez l’aperçu pour l’imprimer ou l’enregistrer en PDF.</span>";
-      stage.append(summary,$("#actions"));
-    }
-    const controls=document.createElement("div");
-    controls.className="wizard-controls";
-    const previous=document.createElement("button");
-    previous.type="button";
-    previous.className="btn alt wizard-previous";
-    previous.dataset.wizardPrevious="";
-    previous.textContent="← Précédent";
-    const next=document.createElement("button");
-    next.type="button";
-    next.className="btn wizard-next";
-    next.dataset.wizardNext="";
-    next.textContent=index===WIZARD_STEPS.length-1?"Terminer":"Continuer →";
-    controls.append(previous,next);
-    stage.append(controls);
-    stages.append(stage);
-  });
-  form.replaceChildren(wizard);
+  wizardRoot=createRoot($("#form"));
+  const formProps={
+    schema:S,
+    needs:BESOINS,
+    aspects:ASPECTS,
+    columns:COLS,
+    hints:HINTS,
+    dynamic:DYN,
+    data:{...data},
+    onChange:(key,value)=>{
+      data[key]=value;
+      const field=document.querySelector(`[data-k="${CSS.escape(key)}"]`);
+      field?.classList.remove("bad");
+      update();
+      saveDraft();
+      refreshValidation();
+    },
+    filledNeeds
+  };
+  wizardRoot.render(createElement(WizardScreen,{
+    steps:WIZARD_STEPS,
+    formProps,
+    actions:[
+      createElement("button",{type:"button",className:"btn alt",id:"exportPdf",key:"export"},"Exporter le dossier en PDF"),
+      createElement("button",{type:"button",className:"btn",id:"save",key:"save"},"Enregistrer le dossier")
+    ],
+    onStepChange:setWizardStep
+  }));
   setWizardStep(0,{scroll:false});
 }
 function setWizardStep(index,{scroll=true}={}){
   if(!Number.isInteger(index)||index<0||index>=WIZARD_STEPS.length) return;
   currentWizardStep=index;
-  document.querySelectorAll(".wizard-stage").forEach(stage=>{
-    const active=Number(stage.dataset.wizardStep)===index;
-    stage.classList.toggle("hidden",!active);
-    stage.hidden=!active;
-  });
-  document.querySelectorAll(".wizard-step-button").forEach(button=>{
-    const step=Number(button.dataset.wizardGoto);
-    button.classList.toggle("is-current",step===index);
-    button.classList.toggle("is-complete",step<index);
-    if(step===index) button.setAttribute("aria-current","step");
-    else button.removeAttribute("aria-current");
-  });
-  document.querySelectorAll(".wizard-previous").forEach(button=>button.disabled=index===0);
-  document.querySelectorAll(".wizard-next").forEach(button=>{
-    button.classList.toggle("hidden",index===WIZARD_STEPS.length-1);
-  });
-  if(scroll) $("#form").scrollIntoView({behavior:"smooth",block:"start"});
+  window.dispatchEvent(new CustomEvent("demarche:wizard-step",{detail:{index}}));
+  if(scroll) requestAnimationFrame(()=>$("#form").scrollIntoView({behavior:"smooth",block:"start"}));
 }
 function update(){
-  // champs conditionnels
-  S.forEach(s=>s.f.forEach(f=>{
-    if(f.show){ const n=document.querySelector(`[data-f="${f.id}"]`); n&&n.classList.toggle("hidden",!f.show(data)); }
-  }));
   calcIMC();
-  renderGuide();
-  updateBesoins();
-  updateNeedSuggestions();
-  updateRelationDiagnosisButtons();
-  updateObjLabels();
-  updateIntLabels();
-  updatePlanLabels();
-  updateProgress();
-  updateObjectiveAlert();
-  updateWizardReview();
+  insTexts=[phraseCivil(),phraseAdmission()];
+  window.dispatchEvent(new CustomEvent("demarche:data-updated",{detail:{data:{...data}}}));
 }
 function calcIMC(){
-  const box=$("#imcBox"); if(!box) return;
   const p=parseFloat(data.poids), t=parseFloat(data.taille)/100;
-  if(!p||!t){ box.textContent="Renseigner le poids et la taille dans les constantes du jour"; data.imc=""; return; }
-  const v=p/(t*t); let c,col;
-  if(v<18.5){c="Maigreur";col="var(--warn)"} else if(v<25){c="Poids normal";col="var(--ok)"} else if(v<30){c="Surpoids";col="var(--warn)"} else {c="Obésité";col="var(--warn)"}
-  data.imc=v.toFixed(1);
-  box.innerHTML=`<b>${data.imc}</b> kg/m² <span style="color:${col}">· ${c}</span>`;
+  data.imc=p>0&&t>0?(p/(t*t)).toFixed(1):"";
 }
 
 
 /* ===== GUIDE DE RÉDACTION : histoire de la maladie ===== */
-const GUIDE = [
-  ["Mode de début","Quand les symptômes ont-ils commencé ? Début brutal ou progressif ? Dans quelles circonstances ?"],
-  ["Évolution des symptômes","Quels symptômes, dans quel ordre, avec quelle intensité ?"],
-  ["Admission","Pourquoi consulter à ce moment-là ? Quel était l’état du patient à l’entrée ?"],
-  ["Depuis l’hospitalisation","Amélioration ou aggravation ?"]
-];
 let insTexts = [];
 const TODO = "[à compléter]";
 function fdate(d){ return d ? d.split("-").reverse().join("/") : TODO; }
@@ -397,23 +262,14 @@ function phraseAdmission(){
   const adm = data.sexe==="Féminin" ? "admise" : "admis";
   return `Le patient est ${adm} le ${fdate(data.entree)} dans le service ${data.lieu||TODO} pour ${data.diag||TODO}.`.replace("Le patient", data.sexe==="Féminin" ? "La patiente" : "Le patient");
 }
-function renderGuide(){
-  const box = $("#guidePanel"); if(!box || box.classList.contains("hidden")) return;
-  insTexts = [phraseCivil(), phraseAdmission()];
-  const vie = [];
-  if(data.alcool==="Oui") vie.push("consommation d’alcool");
-  if(data.imc) vie.push("IMC "+data.imc);
-  box.innerHTML =
-    `<p class="lab">Plan conseillé : écris au passé et dans l’ordre chronologique, sans inventer de données.</p>`+
-    `<div class="sug"><b>1. Présentation du patient</b><p>${insTexts[0]}</p><button type="button" class="btn alt" data-ins="0">Insérer dans le résumé</button></div>`+
-    GUIDE.map((g,i)=>`<div class="sug"><b>${i+2}. ${g[0]}</b><p>${g[1]}</p>`+
-      (g[0]==="Admission" ? `<p><i>${insTexts[1]}</i></p><button type="button" class="btn alt" data-ins="1">Insérer dans le résumé</button>` : "")+`</div>`).join("")+
-    (vie.length ? `<p class="lab">À mentionner si pertinent : ${vie.join(", ")}.</p>` : "");
-}
 function insertText(t){
   const el = $("#f_histoire"); if(!el) return;
-  el.value = el.value.trim() ? el.value.trim()+"\n\n"+t : t;
-  data.histoire = el.value; el.classList.remove("bad"); el.focus();
+  data.histoire = data.histoire&&data.histoire.trim() ? data.histoire.trim()+"\n\n"+t : t;
+  update();
+  saveDraft();
+  refreshValidation();
+  el.classList.remove("bad");
+  el.focus();
 }
 
 
@@ -456,62 +312,11 @@ const HINTS = {
   recreer:["Énergie et capacité physique pour les loisirs","Ennui, plaisir, humeur, intérêt pour les activités, moral","Loisirs habituels, vie sociale, visites, accès à la radio, à la télévision, au téléphone"],
   apprendre:["Concentration, mémoire, vue, audition, niveau de conscience, fatigue limitant l’apprentissage","Motivation, compréhension de la maladie, anxiété, ouverture à l’éducation","Niveau d’instruction, langue, connaissances sur la maladie et le traitement, rôle de l’entourage"]
 };
-function besoinsHTML(){
-  return BESOINS.map(([id,t],i)=>
-    `<details class="bes"><summary><span>${i+1}. ${t}</span><em class="cnt" data-cnt="${id}">0/6</em></summary>`+
-    `<div class="bt"><div class="bh"><span>Aspect</span>${COLS.map(c=>`<span>${c[1]}</span>`).join("")}</div>`+
-    ASPECTS.map((a,ai)=>`<div class="br"><div class="asp"><b>${a[1]}</b><small>${HINTS[id][ai]}</small></div>`+
-      COLS.map(c=>`<div class="bc"><span class="cap">${c[1]}</span><textarea data-k="${id}_${a[0]}_${c[0]}" aria-label="${t} : ${a[1]} : ${c[1]}"></textarea></div>`).join("")+
-    `</div>`).join("")+`</div></details>`).join("");
-}
-function updateBesoins(){
-  BESOINS.forEach(([id])=>{
-    let n=0;
-    ASPECTS.forEach(a=>COLS.forEach(c=>{ if((data[`${id}_${a[0]}_${c[0]}`]||"").trim()) n++; }));
-    const el=document.querySelector(`[data-cnt="${id}"]`);
-    if(el){
-      el.textContent=n+"/6";
-      el.classList.toggle("done",n===6);
-      el.classList.toggle("partial",n>0&&n<6);
-    }
-  });
-}
 function refreshRecords(){
-  const list=$("#recordsList");
-  list.replaceChildren();
   const records=readRecords();
   if(!Array.isArray(records)) throw new Error("La liste des dossiers locaux est illisible.");
-  if(!records.length){
-    const empty=document.createElement("p");
-    empty.className="empty-records";
-    empty.textContent="Aucun dossier enregistré pour le moment.";
-    list.append(empty);
-    return;
-  }
-  records.sort((a,b)=>b.savedAt.localeCompare(a.savedAt)).forEach(record=>{
-    const row=document.createElement("div");
-    row.className="record-row";
-    const info=document.createElement("div");
-    info.className="record-info";
-    const title=document.createElement("strong");
-    title.textContent=record.title;
-    const date=document.createElement("small");
-    date.textContent=`Enregistré le ${new Date(record.savedAt).toLocaleString("fr-FR")}`;
-    info.append(title,date);
-    const controls=document.createElement("div");
-    controls.className="record-actions";
-    [["open","Ouvrir"],["pdf","PDF"],["delete","Supprimer"]].forEach(([action,label])=>{
-      const button=document.createElement("button");
-      button.type="button";
-      button.className="btn alt";
-      button.dataset.recordAction=action;
-      button.dataset.recordId=record.id;
-      button.textContent=label;
-      controls.append(button);
-    });
-    row.append(info,controls);
-    list.append(row);
-  });
+  records.sort((a,b)=>b.savedAt.localeCompare(a.savedAt));
+  window.dispatchEvent(new CustomEvent("demarche:records-updated",{detail:{records}}));
 }
 function saveDraft(){
   try{
@@ -540,13 +345,6 @@ function loadIntoForm(values,recordId){
   Object.keys(data).forEach(key=>delete data[key]);
   Object.assign(data,values);
   currentRecordId=recordId;
-  renderLists();
-  $("#form").querySelectorAll("[data-k]").forEach(input=>{
-    const value=data[input.dataset.k]||"";
-    if(input.type==="radio") input.checked=input.value===value;
-    else input.value=value;
-    input.classList.remove("bad");
-  });
   document.querySelectorAll(".section-details, .bes").forEach(details=>{ details.open=false; });
   $("#out").classList.add("hidden");
   setAppMessage("");
@@ -583,106 +381,23 @@ function deleteSavedRecord(id){
     setAppMessage(`Impossible de supprimer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
   }
 }
-function addReportSection(report,title,entries){
-  const section=document.createElement("section");
-  section.className="report-section";
-  const heading=document.createElement("h2");
-  heading.textContent=title;
-  section.append(heading);
-  if(!entries.length){
-    const empty=document.createElement("p");
-    empty.textContent="Aucune donnée renseignée.";
-    section.append(empty);
-  }else{
-    const table=document.createElement("table");
-    entries.forEach(([label,value])=>{
-      const row=document.createElement("tr");
-      const name=document.createElement("th");
-      name.scope="row";
-      name.textContent=label;
-      const content=document.createElement("td");
-      content.textContent=value;
-      row.append(name,content);
-      table.append(row);
-    });
-    section.append(table);
-  }
-  report.append(section);
-}
-function reportTable(report,title,headings,rows){
-  const section=document.createElement("section");
-  section.className="report-section";
-  const heading=document.createElement("h2");
-  heading.textContent=title;
-  section.append(heading);
-  if(!rows.length){
-    const empty=document.createElement("p");
-    empty.textContent="Aucune donnée renseignée.";
-    section.append(empty);
-  }else{
-    const table=document.createElement("table");
-    table.className=`report-grid-table${headings.length===5?" plan-table":""}`;
-    const thead=document.createElement("thead");
-    const headerRow=document.createElement("tr");
-    headings.forEach(label=>{
-      const cell=document.createElement("th");
-      cell.scope="col";
-      cell.textContent=label;
-      headerRow.append(cell);
-    });
-    thead.append(headerRow);
-    const tbody=document.createElement("tbody");
-    rows.forEach(values=>{
-      const row=document.createElement("tr");
-      values.forEach(value=>{
-        const cell=document.createElement("td");
-        cell.textContent=value||"";
-        row.append(cell);
-      });
-      tbody.append(row);
-    });
-    table.append(thead,tbody);
-    section.append(table);
-  }
-  report.append(section);
-}
 function showReportPreview(values){
-  const report=$("#printReport");
-  report.replaceChildren();
-  const title=document.createElement("h1");
-  title.textContent="Démarche de soins — Dossier patient";
-  report.append(title);
-  const generated=document.createElement("p");
-  generated.className="report-date";
-  generated.textContent="Démarche de soins — Document de travail";
-  report.append(generated);
-  const identity=document.createElement("div");
-  identity.className="report-identity";
-  [["Nom de l’étudiant",values.student],["École",values.school]].forEach(([label,value])=>{
-    const field=document.createElement("p");
-    const name=document.createElement("strong");
-    name.textContent=`${label} :`;
-    const entry=document.createElement("span");
-    entry.textContent=value||"";
-    field.append(name,entry);
-    identity.append(field);
-  });
-  report.append(identity);
-  S.forEach(section=>{
-    const entries=section.f.filter(field=>field.ty!=="guide").map(field=>[
+  const sections=S.map(section=>({
+    title:section.t,
+    entries:section.f.filter(field=>field.ty!=="guide").map(field=>[
       field.l,
       String(field.ty==="imc"?(values.imc||""):(values[field.id]||""))
-    ]).filter(([,value])=>value);
-    addReportSection(report,section.t,entries);
-  });
-  BESOINS.forEach(([id,label],index)=>{
-    const rows=ASPECTS.map(aspect=>[
+    ]).filter(([,value])=>value)
+  }));
+  const needSections=BESOINS.map(([id,label],index)=>({
+    title:`${index+1}. ${label}`,
+    headings:["Aspect",COLS[0][1],COLS[1][1]],
+    rows:ASPECTS.map(aspect=>[
       aspect[1],
       values[`${id}_${aspect[0]}_obs`]||"",
       values[`${id}_${aspect[0]}_dos`]||""
-    ]).filter(([,observations,dossier])=>observations||dossier);
-    reportTable(report,`${index+1}. ${label}`,["Aspect",COLS[0][1],COLS[1][1]],rows);
-  });
+    ]).filter(([,observations,dossier])=>observations||dossier)
+  }));
   const needCount=Math.min(Math.max(parseInt(values.nonsat_n)||1,1),MAX_ROWS);
   const unmetRows=[];
   for(let i=0;i<needCount;i++){
@@ -690,18 +405,12 @@ function showReportPreview(values){
     const actions=values[`nonsat_${i}_actions`]||"";
     if(need||actions) unmetRows.push([need,actions]);
   }
-  reportTable(report,"Besoins non satisfaits",["Besoins non satisfaits","Actions montrant la non-satisfaction"],unmetRows);
-  addReportSection(report,"Relation entre les éléments",reportRows(values,"rel"));
-  addReportSection(report,"Diagnostics infirmiers : réels ou actuels",reportRows(values,"dreel"));
-  addReportSection(report,"Diagnostics infirmiers : à risque ou potentiels",reportRows(values,"drisk"));
   const objectiveRows=[];
   for(let i=0;i<needCount;i++){
     const objective=values[`obj_${i}_txt`]||"";
     const interventions=values[`int_${i}_txt`]||"";
     if(objective||interventions) objectiveRows.push([objective,interventions]);
   }
-  reportTable(report,"Objectifs et interventions",["Objectifs de soins","Interventions infirmières"],objectiveRows);
-  addReportSection(report,"Problèmes médicaux",reportRows(values,"pm"));
   const planRows=[];
   for(let i=0;i<needCount;i++){
     const date=values[`plan_${i}_date`]||"";
@@ -721,20 +430,33 @@ function showReportPreview(values){
       ]);
     }
   }
-  reportTable(report,"Plan de soins",["Date du plan / besoin non satisfait","Objectif","Interventions infirmières","Soins délégués","Évaluation (date et résultat)"],planRows);
+  if(!reportRoot) reportRoot=createRoot($("#printReport"));
+  reportRoot.render(createElement(ReportPreview,{
+    title:"Démarche de soins — Dossier patient",
+    identity:[["Nom de l’étudiant",values.student],["École",values.school]],
+    sections,
+    needSections,
+    unmetRows,
+    relationshipRows:reportRows(values,"rel"),
+    realDiagnosisRows:reportRows(values,"dreel"),
+    riskDiagnosisRows:reportRows(values,"drisk"),
+    objectiveRows,
+    medicalRows:reportRows(values,"pm"),
+    planRows,
+    headings:["Date du plan / besoin non satisfait","Objectif","Interventions infirmières","Soins délégués","Évaluation (date et résultat)"]
+  }));
   $("#pdfPreview").classList.remove("hidden");
   $("#pdfPreview").scrollIntoView({behavior:"smooth"});
 }
 function printReport(){
   const previousTitle=document.title;
-  const heading=$("#printReport h1").textContent;
-  document.title=`Démarche de soins - ${heading}`;
+  document.title="Démarche de soins - Dossier patient";
   window.addEventListener("afterprint",()=>{ document.title=previousTitle; },{once:true});
   window.print();
 }
 function closeReportPreview(){
   $("#pdfPreview").classList.add("hidden");
-  $("#actions").scrollIntoView({behavior:"smooth"});
+  $(".wizard-actions").scrollIntoView({behavior:"smooth"});
 }
 async function installApp(){
   if(!deferredInstallPrompt) return;
@@ -752,6 +474,10 @@ async function installApp(){
   }
 }
 function enableOfflineApp(){
+  if(import.meta.env.DEV){
+    $("#status").textContent="Mode développement : le mode hors ligne est activé dans la version publiée.";
+    return;
+  }
   if(!window.isSecureContext||!("serviceWorker" in navigator)){
     $("#status").textContent="Pour installer l’application et activer le mode hors ligne, ouvrez-la depuis une adresse HTTPS.";
     return;
@@ -829,7 +555,6 @@ async function importRecords(file){
 /* ===== LISTES À LIGNES VARIABLES : besoins non satisfaits, relations, diagnostics ===== */
 const MAX_ROWS=30;
 const DYN_KEY=/^(nonsat|rel|dreel|drisk|obj|int|pm|plan)_(n|\d{1,2}_[a-z]+)$/;
-const BESOIN_OPTS=BESOINS.map(([id,t],i)=>`${i+1}. ${t}`);
 const DYN={
   nonsat:{add:"Ajouter un besoin",f:[["besoin","Besoin non satisfait","sel"],["actions","Actions montrant la non satisfaction du besoin","area"]]},
   rel:{add:"Ajouter une relation",f:[["prob","Problème","text"],["cause","Cause","text"]]},
@@ -837,174 +562,11 @@ const DYN={
   drisk:{add:"Ajouter un diagnostic",f:[["txt","Diagnostic à risque ou potentiel","area"]]},
   pm:{add:"Ajouter un problème médical",f:[["pb","Problème médical","text"],["signes","Signes observables cliniques / biologiques","area"],["cause","Cause","area"],["obj","Objectifs des soins prescrits","area"],["inter","Interventions de soins","area"],["voie","Voie d’administration","text"],["effets","Effets attendus : efficacité clinique / biologique","area"],["second","Effets secondaires à dépister","area"]]}
 };
-function stepHTML(){
-  const grp=g=>`<div data-g="${g}"></div><button type="button" class="btn alt" data-add="${g}">${DYN[g].add}</button>`;
-  return `<fieldset id="nonsat-sec"><legend>Besoins non satisfaits ${progressBadge("nonsat","Besoins non satisfaits")}</legend><p class="diag-format">Suggestions fondées sur les informations déjà saisies dans les 14 besoins. Une donnée renseignée ne signifie pas automatiquement que le besoin est non satisfait : vérifiez chaque proposition.</p><div class="need-suggestions" data-need-suggestions></div>${grp("nonsat")}</fieldset>`
-    +`<fieldset id="relation-sec"><legend>Relation entre les éléments ${progressBadge("relations","Relation entre les éléments")}</legend><p class="lab">Associez un problème à sa cause, puis utilisez le bouton pour préparer un diagnostic réel à compléter.</p>${grp("rel")}</fieldset>`
-    +`<fieldset id="diagnostics-sec"><legend>Diagnostics infirmiers ${progressBadge("diagnostics","Diagnostics infirmiers")}</legend><h3 class="dyn-h">Réels et actuels ${progressBadge("diagnostics-real","Diagnostics réels et actuels")}</h3><p class="diag-format">Format : [Problème] + lié à + [Étiologie/Cause] + se manifestant par + [Signes et symptômes].</p>${grp("dreel")}<h3 class="dyn-h">À risque ou potentiels ${progressBadge("diagnostics-risk","Diagnostics à risque ou potentiels")}</h3><p class="diag-format">Format : [Risque de…] + lié à + [Facteurs de risque].</p>${grp("drisk")}</fieldset>`
-    +`<fieldset id="objectifs-sec"><legend>Objectifs de soins ${progressBadge("objectives","Objectifs de soins")}</legend><div class="diag-format"><b>Deux formulations possibles :</b><br>[Le patient] + [Verbe d’action au futur] + [Résultat mesurable] + [Échéance/Délai].<br>[Que le patient] + [Verbe d’action au subjonctif] + [Résultat mesurable] + [Échéance/Délai].</div><p class="lab">Prévoir un objectif de soins pour chaque besoin non satisfait.</p><div class="objective-alert hidden" data-objective-alert role="alert" aria-live="polite"></div><div data-obj></div></fieldset>`
-    +`<fieldset id="interventions-sec"><legend>Interventions infirmières ${progressBadge("interventions","Interventions infirmières")}</legend><p class="lab">Pour chaque objectif de soins, indiquez les interventions infirmières à réaliser (une par ligne).</p><div data-int></div></fieldset>`
-    +`<fieldset id="pm-sec"><legend>Problèmes médicaux ${progressBadge("medical","Problèmes médicaux")}</legend><p class="lab">Soins prescrits : un bloc par problème médical.</p>${grp("pm")}</fieldset>`
-    +`<fieldset id="plan-sec"><legend>Plan de soins ${progressBadge("plan","Plan de soins")}</legend><p class="lab">Un plan par besoin non satisfait. Intégrez les soins délégués dans le plan.</p><div data-plan></div></fieldset>`;
-}
 function rowCount(g){ return Math.min(Math.max(parseInt(data[g+"_n"])||1,1),MAX_ROWS); }
-function renderLists(){
-  Object.keys(DYN).forEach(g=>{
-    const box=document.querySelector(`[data-g="${g}"]`); if(!box) return;
-    const n=rowCount(g);
-    box.innerHTML=Array.from({length:n},(_,i)=>`<div class="dyn-row"><div class="dyn-head"><b>${i+1}</b>${n>1?`<button type="button" class="btn alt" data-del="${g}:${i}">Retirer</button>`:""}</div>`
-      +DYN[g].f.map(([k,l,ty])=>{
-        const key=`${g}_${i}_${k}`, id="f_"+key;
-        const ctl=ty==="sel"?`<select id="${id}" data-k="${key}"><option value="">Choisir…</option>${BESOIN_OPTS.map(o=>`<option>${o}</option>`).join("")}</select>`
-          :ty==="area"?`<textarea id="${id}" data-k="${key}"></textarea>`:`<input id="${id}" data-k="${key}" type="text">`;
-        return `<div class="fld"><label for="${id}">${l}</label>${ctl}</div>`;
-      }).join("")+(g==="rel"?`<button type="button" class="btn alt relation-diagnosis" data-diagnosis-from="${i}" disabled>Préremplir un diagnostic réel</button>`:"")+`</div>`).join("");
-    box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
-  });
-  updateNeedSuggestions();
-  updateRelationDiagnosisButtons();
-  renderObjectives();
-  renderInterventions();
-  renderPlan();
-  updateProgress();
-  updateObjectiveAlert();
-}
 function filledNeeds(){
   return BESOINS.filter(([id])=>ASPECTS.some(aspect=>COLS.some(column=>
     String(data[`${id}_${aspect[0]}_${column[0]}`]||"").trim()
   )));
-}
-function setProgress(key,filled,total,unit="champs"){
-  const badge=document.querySelector(`[data-progress="${key}"]`);
-  if(!badge) return;
-  const safeFilled=Math.min(filled,total);
-  badge.textContent=total?`${safeFilled}/${total} ${unit}`:`0 ${unit}`;
-  badge.setAttribute("aria-label",total
-    ?`${safeFilled} sur ${total} ${unit} renseignés`
-    :`Aucun ${unit} à renseigner`);
-  badge.classList.toggle("is-complete",total>0&&safeFilled===total);
-  badge.classList.toggle("is-started",safeFilled>0&&safeFilled<total);
-}
-function isFilled(key){ return String(data[key]||"").trim()!==""; }
-function updateProgress(){
-  let generalFilled=0,generalTotal=0;
-  S.forEach((section,index)=>{
-    const fields=section.f.filter(field=>field.ty!=="guide"&&(!field.show||field.show(data)));
-    const keys=fields.map(field=>field.id);
-    const filled=keys.filter(isFilled).length;
-    setProgress(`general-${index}`,filled,keys.length);
-    generalFilled+=filled;
-    generalTotal+=keys.length;
-  });
-  setProgress("general",generalFilled,generalTotal);
-
-  const needsWithData=filledNeeds().length;
-  setProgress("needs",needsWithData,BESOINS.length,"besoins");
-
-  const countFields=(group,fields)=>{
-    const total=rowCount(group)*fields.length;
-    let filled=0;
-    for(let i=0;i<rowCount(group);i++){
-      fields.forEach(field=>{ if(isFilled(`${group}_${i}_${field}`)) filled++; });
-    }
-    return {filled,total};
-  };
-  const nonsat=countFields("nonsat",["besoin","actions"]);
-  setProgress("nonsat",nonsat.filled,nonsat.total);
-  const relations=countFields("rel",["prob","cause"]);
-  setProgress("relations",relations.filled,relations.total);
-  const real=countFields("dreel",["txt"]);
-  setProgress("diagnostics-real",real.filled,real.total,"diagnostics");
-  const risk=countFields("drisk",["txt"]);
-  setProgress("diagnostics-risk",risk.filled,risk.total,"diagnostics");
-  setProgress("diagnostics",real.filled+risk.filled,real.total+risk.total,"diagnostics");
-  const medical=countFields("pm",DYN.pm.f.map(([key])=>key));
-  setProgress("medical",medical.filled,medical.total);
-
-  const selected=[];
-  for(let i=0;i<rowCount("nonsat");i++){
-    if(isFilled(`nonsat_${i}_besoin`)) selected.push(i);
-  }
-  const objectivesFilled=selected.filter(i=>isFilled(`obj_${i}_txt`)).length;
-  const interventionsFilled=selected.filter(i=>isFilled(`int_${i}_txt`)).length;
-  setProgress("objectives",objectivesFilled,selected.length,"objectifs");
-  setProgress("interventions",interventionsFilled,selected.length,"interventions");
-  const planFields=["date","edate","deleg","eval"];
-  const planFilled=selected.reduce((count,i)=>count+planFields.filter(key=>isFilled(`plan_${i}_${key}`)).length,0);
-  setProgress("plan",planFilled,selected.length*planFields.length);
-}
-function updateObjectiveAlert(){
-  const alert=document.querySelector("[data-objective-alert]");
-  if(!alert) return;
-  const missing=[];
-  for(let i=0;i<rowCount("nonsat");i++){
-    if(!isFilled(`nonsat_${i}_besoin`)||isFilled(`obj_${i}_txt`)) continue;
-    missing.push(data[`nonsat_${i}_besoin`]);
-  }
-  alert.classList.toggle("hidden",missing.length===0);
-  alert.textContent=missing.length
-    ?`Objectif à renseigner pour ${missing.length===1?"ce besoin":"ces besoins"} non satisfait${missing.length===1?"":"s"} : ${missing.join(" ; ")}.`
-    :"";
-}
-function updateWizardReview(){
-  const review=document.querySelector("[data-wizard-review]");
-  if(!review) return;
-  const patient=[data.prenom,data.nom].map(value=>String(value||"").trim()).filter(Boolean).join(" ");
-  const selected=[];
-  for(let i=0;i<rowCount("nonsat");i++){
-    if(isFilled(`nonsat_${i}_besoin`)) selected.push(i);
-  }
-  const missingObjectives=selected.filter(i=>!isFilled(`obj_${i}_txt`)).length;
-  const interventions=selected.filter(i=>isFilled(`int_${i}_txt`)).length;
-  const requiredMissing=missingFields().length;
-  const items=[
-    ["Patient",patient||"À renseigner",!patient],
-    ["Champs obligatoires manquants",String(requiredMissing),requiredMissing>0],
-    ["Besoins fondamentaux documentés",`${filledNeeds().length} / ${BESOINS.length}`,false],
-    ["Besoins non satisfaits retenus",String(selected.length),false],
-    ["Objectifs restant à formuler",String(missingObjectives),missingObjectives>0],
-    ["Besoins avec interventions",`${interventions} / ${selected.length}`,selected.length>interventions]
-  ];
-  review.replaceChildren();
-  items.forEach(([label,value,attention])=>{
-    const wrapper=document.createElement("div");
-    wrapper.className="wizard-review-item";
-    const term=document.createElement("dt");
-    term.textContent=label;
-    const description=document.createElement("dd");
-    description.textContent=value;
-    if(attention) description.classList.add("needs-attention");
-    wrapper.append(term,description);
-    review.append(wrapper);
-  });
-}
-function updateNeedSuggestions(){
-  const box=document.querySelector("[data-need-suggestions]");
-  if(!box) return;
-  const selected=new Set();
-  for(let i=0;i<rowCount("nonsat");i++){
-    const need=data[`nonsat_${i}_besoin`];
-    if(need) selected.add(need);
-  }
-  const suggestions=filledNeeds().filter(([id])=>{
-    const index=BESOINS.findIndex(([needId])=>needId===id);
-    return !selected.has(`${index+1}. ${BESOINS[index][1]}`);
-  });
-  box.replaceChildren();
-  if(!suggestions.length) return;
-  const title=document.createElement("p");
-  title.className="suggestion-title";
-  title.textContent="Besoins renseignés à examiner :";
-  box.append(title);
-  suggestions.forEach(([id,label])=>{
-    const index=BESOINS.findIndex(([needId])=>needId===id);
-    const button=document.createElement("button");
-    button.type="button";
-    button.className="btn alt need-suggestion";
-    button.dataset.suggestNeed=id;
-    button.textContent=`Proposer : ${index+1}. ${label}`;
-    box.append(button);
-  });
 }
 function proposeNeed(id){
   const needIndex=BESOINS.findIndex(([needId])=>needId===id);
@@ -1022,15 +584,8 @@ function proposeNeed(id){
   }
   if(targetIndex===n) data.nonsat_n=String(n+1);
   data[`nonsat_${targetIndex}_besoin`]=label;
-  renderLists();
   update();
   saveDraft();
-}
-function updateRelationDiagnosisButtons(){
-  document.querySelectorAll("[data-diagnosis-from]").forEach(button=>{
-    const i=button.dataset.diagnosisFrom;
-    button.disabled=!(String(data[`rel_${i}_prob`]||"").trim()&&String(data[`rel_${i}_cause`]||"").trim());
-  });
 }
 function createDiagnosisFromRelation(index){
   const problem=String(data[`rel_${index}_prob`]||"").trim();
@@ -1046,7 +601,6 @@ function createDiagnosisFromRelation(index){
   const targetIndex=existingIndex===undefined?n:existingIndex;
   if(targetIndex===n) data.dreel_n=String(n+1);
   data[`dreel_${targetIndex}_txt`]=diagnosis;
-  renderLists();
   update();
   saveDraft();
   const target=document.getElementById(`f_dreel_${targetIndex}_txt`);
@@ -1055,7 +609,7 @@ function createDiagnosisFromRelation(index){
 }
 function addRow(g){
   const n=rowCount(g); if(n>=MAX_ROWS) return;
-  data[g+"_n"]=String(n+1); renderLists(); saveDraft();
+  data[g+"_n"]=String(n+1); update(); saveDraft();
 }
 function delRow(g,idx){
   const n=rowCount(g), i=parseInt(idx); if(n<2||isNaN(i)) return;
@@ -1071,7 +625,7 @@ function delRow(g,idx){
       delete data[`plan_${n-1}_${k}`];
     });
   }
-  data[g+"_n"]=String(n-1); renderLists(); saveDraft();
+  data[g+"_n"]=String(n-1); update(); saveDraft();
 }
 function reportRows(values,g){
   const n=Math.min(Math.max(parseInt(values[g+"_n"])||1,1),MAX_ROWS), out=[];
@@ -1083,104 +637,13 @@ function reportRows(values,g){
 
 
 /* ===== OBJECTIFS DE SOINS : un objectif par besoin non satisfait ===== */
-function renderObjectives(){
-  const box=document.querySelector("[data-obj]"); if(!box) return;
-  const n=rowCount("nonsat");
-  box.innerHTML=Array.from({length:n},(_,i)=>`<div class="dyn-row"><div class="dyn-head"><b class="obj-label" data-i="${i}"></b></div><div class="fld"><label for="f_obj_${i}_txt">Objectif de soins</label><textarea id="f_obj_${i}_txt" data-k="obj_${i}_txt"></textarea></div></div>`).join("");
-  box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
-  updateObjLabels();
-}
-function updateObjLabels(){
-  document.querySelectorAll(".obj-label").forEach(el=>{
-    const i=el.dataset.i;
-    el.textContent=data[`nonsat_${i}_besoin`]||`Besoin non précisé (ligne ${+i+1})`;
-  });
-}
-function reportObjectives(values){
-  const n=Math.min(Math.max(parseInt(values.nonsat_n)||1,1),MAX_ROWS), out=[];
-  for(let i=0;i<n;i++){
-    const v=values[`obj_${i}_txt`];
-    if(v) out.push([values[`nonsat_${i}_besoin`]||`Besoin ${i+1}`,v]);
-  }
-  return out;
-}
-
-
-/* ===== INTERVENTIONS INFIRMIÈRES : une zone par objectif de soins ===== */
-function renderInterventions(){
-  const box=document.querySelector("[data-int]"); if(!box) return;
-  const n=rowCount("nonsat");
-  box.innerHTML=Array.from({length:n},(_,i)=>`<div class="dyn-row"><div class="dyn-head"><b class="int-label" data-i="${i}"></b></div><p class="lab int-obj" data-i="${i}"></p><div class="fld"><label for="f_int_${i}_txt">Interventions</label><textarea id="f_int_${i}_txt" data-k="int_${i}_txt"></textarea></div></div>`).join("");
-  box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
-  updateIntLabels();
-}
-function updateIntLabels(){
-  document.querySelectorAll(".int-label").forEach(el=>{
-    el.textContent=data[`nonsat_${el.dataset.i}_besoin`]||`Besoin non précisé (ligne ${+el.dataset.i+1})`;
-  });
-  document.querySelectorAll(".int-obj").forEach(el=>{
-    el.textContent="Objectif : "+(data[`obj_${el.dataset.i}_txt`]||"non renseigné");
-  });
-}
-function reportInterventions(values){
-  const n=Math.min(Math.max(parseInt(values.nonsat_n)||1,1),MAX_ROWS), out=[];
-  for(let i=0;i<n;i++){
-    const b=values[`nonsat_${i}_besoin`]||`Besoin ${i+1}`;
-    if(values[`obj_${i}_txt`]) out.push([`Objectif : ${b}`,values[`obj_${i}_txt`]]);
-    if(values[`int_${i}_txt`]) out.push([`Interventions : ${b}`,values[`int_${i}_txt`]]);
-  }
-  return out;
-}
-
-
-/* ===== PLAN DE SOINS : un plan par besoin non satisfait ===== */
-function renderPlan(){
-  const box=document.querySelector("[data-plan]"); if(!box) return;
-  const n=rowCount("nonsat");
-  box.innerHTML=Array.from({length:n},(_,i)=>{
-    const f=(k,l,ty,full)=>{
-      const id=`f_plan_${i}_${k}`, key=`plan_${i}_${k}`;
-      const ctl=ty==="area"?`<textarea id="${id}" data-k="${key}"></textarea>`:`<input id="${id}" data-k="${key}" type="datetime-local">`;
-      return `<div class="fld${full?" full":""}"><label for="${id}">${l}</label>${ctl}</div>`;
-    };
-    return `<div class="dyn-row"><div class="dyn-head"><b class="plan-label" data-i="${i}"></b></div><p class="lab plan-recap" data-i="${i}"></p><div class="grid">${f("date","Date et heure du plan")}${f("edate","Date et heure de l’évaluation")}${f("deleg","Soins délégués (à intégrer au plan)","area",1)}${f("eval","Évaluation","area",1)}</div></div>`;
-  }).join("");
-  box.querySelectorAll("[data-k]").forEach(el=>{ el.value=data[el.dataset.k]||""; });
-  updatePlanLabels();
-}
-function updatePlanLabels(){
-  document.querySelectorAll(".plan-label").forEach(el=>{
-    el.textContent=data[`nonsat_${el.dataset.i}_besoin`]||`Besoin non précisé (ligne ${+el.dataset.i+1})`;
-  });
-  document.querySelectorAll(".plan-recap").forEach(el=>{
-    const i=el.dataset.i;
-    el.textContent="Objectif : "+(data[`obj_${i}_txt`]||"non renseigné")+"\nInterventions : "+(data[`int_${i}_txt`]||"non renseignées");
-  });
-}
 function fdt(v){ if(!v) return ""; const [d,t]=v.split("T"); return d.split("-").reverse().join("/")+(t?" "+t:""); }
-function reportPlan(values){
-  const n=Math.min(Math.max(parseInt(values.nonsat_n)||1,1),MAX_ROWS), out=[];
-  for(let i=0;i<n;i++){
-    const b=values[`nonsat_${i}_besoin`]||`Besoin ${i+1}`, g=k=>values[`plan_${i}_${k}`]||"";
-    [["Date du plan",fdt(g("date"))],["Objectif",values[`obj_${i}_txt`]||""],["Interventions",values[`int_${i}_txt`]||""],["Soins délégués",g("deleg")],["Date de l’évaluation",fdt(g("edate"))],["Évaluation",g("eval")]]
-      .forEach(([l,v])=>{ if(v) out.push([`${b} : ${l}`,v]); });
-  }
-  return out;
-}
 
 /* ===== 4. ÉVÉNEMENTS ===== */
-document.addEventListener("input",e=>{
-  const k=e.target.dataset&&e.target.dataset.k; if(!k) return;
-  data[k]=e.target.value; e.target.classList.remove("bad");
-  update();
-  saveDraft();
-  refreshValidation();
-});
 document.addEventListener("click",e=>{
   if(e.target.closest("[data-open-app]")){
     closeLandingNavigation();
-    $("#landingPage").classList.add("hidden");
-    $("#appView").classList.remove("hidden");
+    window.dispatchEvent(new CustomEvent("demarche:view",{detail:{view:"app"}}));
     window.scrollTo({top:0,behavior:"auto"});
     return;
   }
@@ -1195,15 +658,11 @@ document.addEventListener("click",e=>{
   if($("#landingNav").classList.contains("is-open")&&!e.target.closest("#landingNav")&&!e.target.closest("#landingMenuToggle")) closeLandingNavigation();
   if(e.target.closest("#landingNav a")) closeLandingNavigation();
   if(e.target.closest("#backHome")){
-    $("#appView").classList.add("hidden");
-    $("#landingPage").classList.remove("hidden");
+    closeNavigationMenu();
+    window.dispatchEvent(new CustomEvent("demarche:view",{detail:{view:"landing"}}));
     window.scrollTo({top:0,behavior:"auto"});
     return;
   }
-  const wizardGoto=e.target.closest("[data-wizard-goto]");
-  if(wizardGoto){ setWizardStep(Number(wizardGoto.dataset.wizardGoto)); return; }
-  if(e.target.closest("[data-wizard-previous]")){ setWizardStep(currentWizardStep-1); return; }
-  if(e.target.closest("[data-wizard-next]")){ setWizardStep(currentWizardStep+1); return; }
   const recordButton=e.target.closest("[data-record-action]");
   if(recordButton){
     if(recordButton.dataset.recordAction==="open") openSavedRecord(recordButton.dataset.recordId);
@@ -1285,12 +744,6 @@ document.addEventListener("click",e=>{
   if(!e.target.closest(".appearance-menu")&&!e.target.closest("[data-appearance-toggle]")) closeAppearanceMenu();
   const t=e.target.closest("button");
   if(!t) return;
-  const menuGroupToggle=t.closest(".menu-group-toggle");
-  if(menuGroupToggle){
-    const open=menuGroupToggle.getAttribute("aria-expanded")!=="true";
-    setNavigationGroupOpen(menuGroupToggle,open);
-    return;
-  }
   if(t.dataset.view==="records"){
     closeNavigationMenu();
     setRecordsView(true);
@@ -1301,6 +754,8 @@ document.addEventListener("click",e=>{
       ? $(".general-data")
       : t.dataset.go==="documentation"
         ? $("#documentation")
+      : t.dataset.go==="needs"
+        ? document.querySelector(`fieldset[data-s="${S.length}"]`)
       : /-sec$/.test(t.dataset.go)
         ? document.getElementById(t.dataset.go)
       : +t.dataset.go<S.length
@@ -1314,7 +769,6 @@ document.addEventListener("click",e=>{
   }
   else if(t.dataset.add) addRow(t.dataset.add);
   else if(t.dataset.del) delRow(...t.dataset.del.split(":"));
-  else if(t.id==="guideBtn"){ $("#guidePanel").classList.toggle("hidden"); renderGuide(); }
   else if(t.dataset.ins!==undefined) insertText(insTexts[+t.dataset.ins]);
   else if(t.id==="save") save();
 });
@@ -1399,8 +853,10 @@ document.addEventListener("keydown",e=>{
     else if(openNavigation) closeNavigationMenu({restoreFocus:true});
   }
 });
-migrateActiveAccountData();
-build();
-initializeAppearance();
-loadCurrentDraft();
-enableOfflineApp();
+export function initializeLegacyApp(){
+  migrateActiveAccountData();
+  initializeAppearance();
+  loadCurrentDraft();
+  build();
+  enableOfflineApp();
+}

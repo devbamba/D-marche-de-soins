@@ -1,9 +1,7 @@
-const CACHE_NAME = "demarche-soins-pwa-v10";
+const CACHE_NAME = "demarche-soins-pwa-v14";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./style.css",
-  "./app.js",
   "./manifest.json",
   "./icon.svg",
   "./icon-192.png",
@@ -32,6 +30,7 @@ self.addEventListener("fetch",event=>{
   const request=event.request;
   const url=new URL(request.url);
   if(request.method!=="GET"||url.origin!==self.location.origin) return;
+  if(!url.href.startsWith(self.registration.scope)) return;
 
   if(request.mode==="navigate"){
     event.respondWith((async()=>{
@@ -52,8 +51,6 @@ self.addEventListener("fetch",event=>{
     return;
   }
 
-  const cachedAssets=APP_SHELL.slice(1).map(path=>new URL(path,self.registration.scope).href);
-  if(!cachedAssets.includes(request.url)) return;
   event.respondWith((async()=>{
     try{
       const response=await fetch(request);
