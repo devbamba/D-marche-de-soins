@@ -35,12 +35,12 @@ export async function sendSignupCode(email, fullName) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const redirectUrl = new URL(window.location.href);
   redirectUrl.hash = "";
-  redirectUrl.search = "?auth=signup";
+  redirectUrl.search = "";
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       shouldCreateUser: true,
-      data: { full_name: fullName },
+      data: { full_name: fullName, signup_flow: "email_password" },
       emailRedirectTo: redirectUrl.toString()
     }
   });
@@ -57,7 +57,7 @@ export async function completeSignup(fullName, password) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const { error } = await supabase.auth.updateUser({
     password,
-    data: { full_name: fullName }
+    data: { full_name: fullName, signup_flow: null }
   });
   if (error) throw error;
 }

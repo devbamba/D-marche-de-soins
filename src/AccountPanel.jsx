@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   completeSignup,
   sendSignupCode,
@@ -18,7 +18,15 @@ export function AccountPanel({ user, authReady, onSignedOut }) {
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const signupLinkCallback = new URLSearchParams(window.location.search).get("auth") === "signup";
+  const signupLinkCallback = user?.user_metadata?.signup_flow === "email_password";
+
+  useEffect(() => {
+    if (!signupLinkCallback) return;
+    setMode("signup");
+    setSignupStep("password");
+    setFullName(user.user_metadata.full_name ?? "");
+    setMessage("Adresse e-mail vérifiée. Choisissez un mot de passe pour terminer l’inscription.");
+  }, [signupLinkCallback, user]);
 
   async function submitSignin(event) {
     event.preventDefault();
@@ -74,9 +82,6 @@ export function AccountPanel({ user, authReady, onSignedOut }) {
     try {
       const verifiedName = fullName.trim() || user?.user_metadata?.full_name || "";
       await completeSignup(verifiedName, password);
-      const nextUrl = new URL(window.location.href);
-      nextUrl.searchParams.delete("auth");
-      window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
       setMode("signin");
       setPassword("");
       setMessage("Votre compte est créé. Vous êtes connecté.");
@@ -242,12 +247,14 @@ export function AccountPanel({ user, authReady, onSignedOut }) {
             <p className="account-divider"><span>ou</span></p>
             <button type="button" className="btn alt" onClick={continueWithGoogle} disabled={busy}>Continuer avec Google</button>
           </div>
-          <p className="account-switch">
-            {activeMode === "signup" ? "Vous avez déjà un compte ?" : "Vous n’avez pas encore de compte ?"}
-            <button type="button" disabled={busy} onClick={activeMode === "signup" ? showSignin : showSignup}>
-              {activeMode === "signup" ? "Se connecter" : "Créer un compte"}
-            </button>
-          </p>
+          {!signupLinkCallback && (
+            <p className="account-switch">
+              {activeMode === "signup" ? "Vous avez déjà un compte ?" : "Vous n’avez pas encore de compte ?"}
+              <button type="button" disabled={busy} onClick={activeMode === "signup" ? showSignin : showSignup}>
+                {activeMode === "signup" ? "Se connecter" : "Créer un compte"}
+              </button>
+            </p>
+          )}
         </>
       )}
       {message && <p className="account-message" role="status">{message}</p>}
