@@ -51,7 +51,7 @@ export function AccountPanel({ user, authReady, onSignedOut }) {
       await sendSignupCode(email.trim(), fullName.trim());
       setSignupStep("code");
       setCode("");
-      setMessage(`Un code de vérification a été envoyé à ${email.trim()}.`);
+      setMessage(`Demande envoyée à ${email.trim()}. Si le message contient un lien plutôt qu’un code, configurez le modèle « Magic link or OTP » de Supabase pour afficher {{ .Token }}.`);
     } catch (error) {
       setMessage(`Envoi du code impossible : ${error.message}`);
     } finally {
