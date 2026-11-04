@@ -1,4 +1,4 @@
-export function LandingPage({ hidden = false }) {
+export function LandingPage({ hidden = false, user, accountPanel }) {
   return (
     <div className={`landing-page${hidden ? " hidden" : ""}`} id="landingPage">
       <header className="landing-header">
@@ -12,7 +12,7 @@ export function LandingPage({ hidden = false }) {
         <nav className="landing-nav" id="landingNav" aria-label="Navigation de présentation">
           <span className="landing-nav-title">Navigation</span>
           <a href="#fonctionnalites">Fonctionnalités</a>
-          <button type="button" className="btn landing-nav-cta" data-open-app>Ouvrir l’application <span aria-hidden="true">→</span></button>
+          {user ? <button type="button" className="btn landing-nav-cta" data-open-app>Ouvrir l’application <span aria-hidden="true">→</span></button> : <a className="btn landing-nav-cta" href="#connexion">Se connecter</a>}
         </nav>
       </header>
       <main id="accueil">
@@ -22,10 +22,10 @@ export function LandingPage({ hidden = false }) {
             <h1>Construisez votre démarche de soins, <span>étape par étape.</span></h1>
             <p className="landing-description">Du recueil de données au plan de soins, retrouvez vos repères dans un espace clair, conçu pour vous accompagner dans votre travail.</p>
             <div className="landing-actions">
-              <button type="button" className="btn landing-primary" data-open-app>Découvrir l’application <span aria-hidden="true">→</span></button>
+              {user ? <button type="button" className="btn landing-primary" data-open-app>Accéder à l’application <span aria-hidden="true">→</span></button> : <a className="btn landing-primary" href="#connexion">Se connecter ou créer un compte <span aria-hidden="true">→</span></a>}
               <a className="landing-secondary" href="#fonctionnalites">Voir les fonctionnalités <span aria-hidden="true">↓</span></a>
             </div>
-            <p className="landing-note"><span aria-hidden="true">✓</span> Démonstration avec patients fictifs · Données enregistrées dans ce navigateur</p>
+            <p className="landing-note"><span aria-hidden="true">✓</span> Accès réservé aux comptes connectés · Utilisez uniquement des cas fictifs</p>
           </div>
           <div className="device-showcase" aria-label="Aperçu de l’application sur ordinateur, tablette et smartphone">
             <div className="device device-laptop">
@@ -66,6 +66,14 @@ export function LandingPage({ hidden = false }) {
             <div className="showcase-orbit orbit-two"/>
           </div>
         </section>
+        <section className="landing-account" id="connexion" aria-labelledby="accountHeading">
+          <div className="landing-account-heading">
+            <p className="landing-eyebrow">Votre espace sécurisé</p>
+            <h2 id="accountHeading">{user ? "Votre compte" : "Connexion ou création de compte"}</h2>
+            <p>Connectez-vous pour ouvrir l’espace de travail et retrouver vos dossiers.</p>
+          </div>
+          {accountPanel}
+        </section>
         <section className="landing-features" id="fonctionnalites">
           <div className="features-heading">
             <p className="landing-eyebrow">Un accompagnement structuré</p>
@@ -81,7 +89,7 @@ export function LandingPage({ hidden = false }) {
         </section>
         <section className="landing-bottom">
           <div><p className="landing-eyebrow">Prêt à commencer ?</p><h2>Ouvrez votre espace de travail.</h2><p>Créez un dossier fictif et suivez les étapes de la démarche.</p></div>
-          <button type="button" className="btn landing-primary" data-open-app>Accéder à l’application <span aria-hidden="true">→</span></button>
+          {user ? <button type="button" className="btn landing-primary" data-open-app>Accéder à l’application <span aria-hidden="true">→</span></button> : <a className="btn landing-primary" href="#connexion">Se connecter ou créer un compte <span aria-hidden="true">→</span></a>}
         </section>
       </main>
       <footer className="landing-footer"><span>Démarche de soins</span><span>Outil pédagogique de démonstration · Patients fictifs uniquement</span></footer>

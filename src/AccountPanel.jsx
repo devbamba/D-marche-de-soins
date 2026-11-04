@@ -1,31 +1,18 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
+  signInWithProvider,
   signInWithPassword,
   signOut,
   signUpWithPassword,
-  subscribeToAuth,
   supabaseConfigured
 } from "./lib/supabase.js";
 
-export function AccountPanel() {
-  const [user, setUser] = useState(null);
+export function AccountPanel({ user, authReady, onSignedOut }) {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!supabaseConfigured) return undefined;
-    let active = true;
-    const unsubscribe = subscribeToAuth(({ user: nextUser }) => {
-      if (active) setUser(nextUser);
-    });
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, []);
 
   async function submit(event) {
     event.preventDefault();
@@ -54,6 +41,7 @@ export function AccountPanel() {
     setMessage("");
     try {
       await signOut();
+      onSignedOut();
       setMessage("Vous êtes déconnecté.");
     } catch (error) {
       setMessage(`Déconnexion impossible : ${error.message}`);
@@ -62,18 +50,38 @@ export function AccountPanel() {
     }
   }
 
+  async function continueWith(provider) {
+    setBusy(true);
+    setMessage("");
+    try {
+      await signInWithProvider(provider);
+    } catch (error) {
+      setMessage(`Connexion avec ${provider === "google" ? "Google" : "GitHub"} impossible : ${error.message}`);
+      setBusy(false);
+    }
+  }
+
   return (
-    <section className="account-panel" aria-label="Compte et synchronisation">
+    <section className="account-panel" aria-label="Connexion au compte">
       {!supabaseConfigured ? (
-        <p>La synchronisation Supabase n’est pas encore configurée. L’application continue d’enregistrer les dossiers dans ce navigateur.</p>
+        <p>La connexion est momentanément indisponible : la configuration Supabase est absente.</p>
+      ) : !authReady ? (
+        <p role="status">Vérification de votre session…</p>
       ) : user ? (
         <div className="account-session">
-          <p>Connecté avec <strong>{user.email}</strong>. Les dossiers enregistrés seront synchronisés avec votre compte.</p>
+          <p>Connecté avec <strong>{user.email}</strong>. Vous pouvez accéder à vos dossiers synchronisés.</p>
           <button type="button" className="btn alt" onClick={logout} disabled={busy}>Se déconnecter</button>
         </div>
       ) : (
         <>
-          <h2>{mode === "signup" ? "Créer un compte" : "Connexion Supabase"}</h2>
+          <h2>{mode === "signup" ? "Créer votre compte" : "Connectez-vous pour accéder à l’application"}</h2>
+          <p className="account-intro">L’accès aux dossiers est réservé aux utilisateurs connectés. Utilisez votre adresse e-mail ou continuez avec un fournisseur de compte.</p>
+          <div className="account-providers">
+            <button type="button" className="btn alt" onClick={() => continueWith("google")} disabled={busy}>Continuer avec Google</button>
+            <button type="button" className="btn alt" onClick={() => continueWith("github")} disabled={busy}>Continuer avec GitHub</button>
+          </div>
+          <p className="account-provider-note">Google et GitHub doivent être activés dans la configuration Auth du projet Supabase.</p>
+          <p className="account-divider"><span>ou avec votre adresse e-mail</span></p>
           <form className="account-form" onSubmit={submit}>
             <label>
               Adresse e-mail
@@ -86,7 +94,7 @@ export function AccountPanel() {
             <div className="account-actions">
               <button type="submit" className="btn" disabled={busy}>{busy ? "Veuillez patienter…" : mode === "signup" ? "Créer le compte" : "Se connecter"}</button>
               <button type="button" className="btn alt" disabled={busy} onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setMessage(""); }}>
-                {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte"}
+                {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte avec mon e-mail"}
               </button>
             </div>
           </form>

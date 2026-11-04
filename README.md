@@ -26,7 +26,8 @@ La version actuelle du projet propose :
 - Histoire de la maladie : aide à la rédaction et à la structuration des informations.
 - Constantes vitales : saisie des paramètres physiologiques et calcul automatique de l'IMC.
 - Analyse et planification : besoins non satisfaits, liens entre les éléments, diagnostics, objectifs, interventions et plan de soins.
-- Sauvegarde locale et synchronisation Supabase facultative : reprise du brouillon local, comptes et dossiers synchronisés après configuration.
+- Accès réservé aux comptes connectés : inscription et connexion par e-mail, Google ou GitHub lorsqu’ils sont activés dans Supabase.
+- Synchronisation Supabase des dossiers du compte et reprise des brouillons locaux dans le navigateur.
 - Prévisualisation et impression : génération d'un document imprimable pouvant être enregistré au format PDF.
 
 🚀 Fonctionnalités envisagées
@@ -63,14 +64,15 @@ Tous les écrans et champs de l'application sont maintenant rendus par React, y 
 
 ### Activer Supabase
 
-Supabase est facultatif : sans configuration, l'application reste en mode local. Pour activer les comptes et la synchronisation :
+L’accès à l’application nécessite une session Supabase. Configurez le projet avant de lancer l’application :
 
 1. Créez un projet Supabase et exécutez le script [supabase/schema.sql](./supabase/schema.sql) dans le SQL Editor. La table utilise Row Level Security (RLS) pour que chaque compte n’accède qu’à ses dossiers.
 2. Dans **Authentication → URL Configuration**, définissez l’URL du site publiée et ajoutez-la aux URL de redirection autorisées. Pour GitHub Pages, l’URL ressemble à `https://<utilisateur>.github.io/<depot>/`.
-3. Copiez [.env.example](./.env.example) vers `.env.local`, puis remplacez les valeurs par l’URL du projet et sa clé **publishable** (ou clé `anon`). Ne renseignez jamais une clé `service_role` dans l’application.
-4. Lancez `npm run dev`. L’écran de compte permet de créer un compte ou de se connecter. Les brouillons restent locaux ; les dossiers enregistrés sont synchronisés avec le compte connecté.
-5. Pour GitHub Pages, ajoutez les variables de dépôt `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` dans **Settings → Secrets and variables → Actions → Variables**, puis relancez le workflow de déploiement.
-6. Les dossiers locaux déjà enregistrés ne sont pas envoyés automatiquement. Connectez-vous, ouvrez **Mes dossiers** et utilisez **Importer les dossiers locaux dans mon compte**. Les dossiers déjà présents dans le compte ne sont pas remplacés.
+3. Pour activer **Google** ou **GitHub**, ouvrez **Authentication → Sign In / Providers**, activez le fournisseur choisi et saisissez ses identifiants OAuth. Pour Google, créez un identifiant OAuth dans Google Cloud Console et utilisez l’URL de rappel affichée par Supabase comme URI de redirection autorisée. Ces identifiants OAuth ne sont pas ceux des utilisateurs de l’application.
+4. Copiez [.env.example](./.env.example) vers `.env.local`, puis remplacez les valeurs par l’URL du projet et sa clé **publishable** (ou clé `anon`). Ne renseignez jamais une clé `service_role` dans l’application.
+5. Lancez `npm run dev`. L’accès aux dossiers est réservé aux utilisateurs connectés. L’inscription et la connexion sont disponibles depuis la page d’accueil, par e-mail ou via les fournisseurs OAuth activés. Les brouillons restent locaux ; les dossiers enregistrés sont synchronisés avec le compte connecté.
+6. Pour GitHub Pages, ajoutez les variables de dépôt `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` dans **Settings → Secrets and variables → Actions → Variables**, puis relancez le workflow de déploiement.
+7. Les dossiers locaux déjà enregistrés ne sont pas envoyés automatiquement. Connectez-vous, ouvrez **Mes dossiers** et utilisez **Importer les dossiers locaux dans mon compte**. Les dossiers déjà présents dans le compte ne sont pas remplacés.
 
 Si une synchronisation échoue, l’application conserve le dossier sur l’appareil et affiche l’erreur ; réessayez lorsque la connexion sera rétablie. Une clé publishable est destinée au navigateur, mais les politiques RLS sont indispensables.
 
@@ -104,7 +106,7 @@ Cette application est actuellement un outil pédagogique en développement.
 
 - Elle est destinée à l'apprentissage de la démarche de soins infirmiers.
 - Les informations sont sauvegardées localement dans le navigateur utilisé.
-- La synchronisation Supabase n’est active que si elle est configurée et qu’un compte est connecté.
+- L’accès aux dossiers et leur synchronisation nécessitent un compte Supabase connecté.
 - Le stockage local actuel ne constitue pas un dispositif de sécurité adapté aux données médicales.
 - Il est fortement recommandé de travailler exclusivement avec des cas fictifs et de ne pas y saisir de données personnelles ou médicales réelles.
 

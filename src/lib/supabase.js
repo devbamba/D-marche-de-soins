@@ -22,6 +22,15 @@ export async function signInWithPassword(email, password) {
   if (error) throw error;
 }
 
+export async function signInWithProvider(provider) {
+  if (!supabase) throw new Error("Supabase n’est pas configuré.");
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: window.location.href.split("#")[0] }
+  });
+  if (error) throw error;
+}
+
 export async function signUpWithPassword(email, password) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const { error } = await supabase.auth.signUp({

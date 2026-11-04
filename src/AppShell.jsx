@@ -1,24 +1,44 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LandingPage } from "./LandingPage.jsx";
 import { RecordsList } from "./RecordsList.jsx";
 import { AccountPanel } from "./AccountPanel.jsx";
-import { supabaseConfigured } from "./lib/supabase.js";
+import { subscribeToAuth, supabaseConfigured } from "./lib/supabase.js";
 
 export function AppShell({ onReady }) {
   const [view, setView] = useState("landing");
   const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(!supabaseConfigured);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
-    const handleViewChange = event => setView(event.detail.view);
+    const handleViewChange = event => {
+      if (event.detail.view !== "landing" && !userRef.current) {
+        setView("landing");
+        document.querySelector("#connexion")?.scrollIntoView({ behavior: "smooth" });
+        document.querySelector("#connexion input")?.focus({ preventScroll: true });
+        return;
+      }
+      setView(event.detail.view);
+    };
     const handleAccountChange = event => setUser(event.detail.user);
     window.addEventListener("demarche:view", handleViewChange);
     window.addEventListener("demarche:account-updated", handleAccountChange);
     onReady();
+    const unsubscribe = subscribeToAuth(({ user: nextUser }) => {
+      setUser(nextUser);
+      setAuthReady(true);
+    });
     return () => {
       window.removeEventListener("demarche:view", handleViewChange);
       window.removeEventListener("demarche:account-updated", handleAccountChange);
+      unsubscribe();
     };
   }, [onReady]);
+
+  useEffect(() => {
+    if (!user && view !== "landing") setView("landing");
+  }, [user, view]);
 
   useEffect(() => {
     if (view === "records") document.querySelector("#recordsHeading")?.focus();
@@ -26,7 +46,11 @@ export function AppShell({ onReady }) {
 
   return (
     <>
-      <LandingPage hidden={view !== "landing"}/>
+      <LandingPage
+        hidden={view !== "landing"}
+        user={user}
+        accountPanel={<AccountPanel user={user} authReady={authReady} onSignedOut={() => setView("landing")}/>}
+      />
       <div className={`wrap app-view${view === "landing" ? " hidden" : ""}`} id="appView">
         <header className="top">
           <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#fff"/><path d="M6 25h10l4-11 7 22 5-15 3 4h7" fill="none" stroke="#0b7a9e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -42,7 +66,6 @@ export function AppShell({ onReady }) {
           </div>
           <nav id="nav" className="nav hidden" aria-label="Navigation principale"/>
         </header>
-        <AccountPanel />
         <button type="button" className="btn alt install-app hidden" id="installApp">Installer l’application</button>
         <section id="recordsPanel" className={`records-panel${view === "records" ? "" : " hidden"}`} aria-labelledby="recordsHeading">
           <div className="records-heading">
