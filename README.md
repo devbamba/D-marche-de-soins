@@ -26,7 +26,7 @@ La version actuelle du projet propose :
 - Histoire de la maladie : aide à la rédaction et à la structuration des informations.
 - Constantes vitales : saisie des paramètres physiologiques et calcul automatique de l'IMC.
 - Analyse et planification : besoins non satisfaits, liens entre les éléments, diagnostics, objectifs, interventions et plan de soins.
-- Sauvegarde locale : conservation des dossiers et reprise du travail dans le navigateur.
+- Sauvegarde locale et synchronisation Supabase facultative : reprise du brouillon local, comptes et dossiers synchronisés après configuration.
 - Prévisualisation et impression : génération d'un document imprimable pouvant être enregistré au format PDF.
 
 🚀 Fonctionnalités envisagées
@@ -55,10 +55,24 @@ CSS3| Mise en forme et interface utilisateur
 React| Écrans, formulaire, navigation, dossiers et aperçu imprimable
 JavaScript| Calculs métier, validation, sauvegarde locale et préparation des exports
 Vite| Serveur de développement et génération de la version de production
-LocalStorage| Sauvegarde locale des données
+Supabase| Authentification par e-mail et synchronisation facultative des dossiers
+LocalStorage| Brouillon local et copie hors ligne des dossiers
 GitHub Pages| Hébergement de l'application
 
 Tous les écrans et champs de l'application sont maintenant rendus par React, y compris les 14 besoins, les listes dynamiques d'analyse et de planification, ainsi que l'aperçu du document. Les fonctions métier et de stockage restent en JavaScript et conservent le format des dossiers existants.
+
+### Activer Supabase
+
+Supabase est facultatif : sans configuration, l'application reste en mode local. Pour activer les comptes et la synchronisation :
+
+1. Créez un projet Supabase et exécutez le script [supabase/schema.sql](./supabase/schema.sql) dans le SQL Editor. La table utilise Row Level Security (RLS) pour que chaque compte n’accède qu’à ses dossiers.
+2. Dans **Authentication → URL Configuration**, définissez l’URL du site publiée et ajoutez-la aux URL de redirection autorisées. Pour GitHub Pages, l’URL ressemble à `https://<utilisateur>.github.io/<depot>/`.
+3. Copiez [.env.example](./.env.example) vers `.env.local`, puis remplacez les valeurs par l’URL du projet et sa clé **publishable** (ou clé `anon`). Ne renseignez jamais une clé `service_role` dans l’application.
+4. Lancez `npm run dev`. L’écran de compte permet de créer un compte ou de se connecter. Les brouillons restent locaux ; les dossiers enregistrés sont synchronisés avec le compte connecté.
+5. Pour GitHub Pages, ajoutez les variables de dépôt `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` dans **Settings → Secrets and variables → Actions → Variables**, puis relancez le workflow de déploiement.
+6. Les dossiers locaux déjà enregistrés ne sont pas envoyés automatiquement. Connectez-vous, ouvrez **Mes dossiers** et utilisez **Importer les dossiers locaux dans mon compte**. Les dossiers déjà présents dans le compte ne sont pas remplacés.
+
+Si une synchronisation échoue, l’application conserve le dossier sur l’appareil et affiche l’erreur ; réessayez lorsque la connexion sera rétablie. Une clé publishable est destinée au navigateur, mais les politiques RLS sont indispensables.
 
 💻 Installation et utilisation
 
@@ -90,7 +104,7 @@ Cette application est actuellement un outil pédagogique en développement.
 
 - Elle est destinée à l'apprentissage de la démarche de soins infirmiers.
 - Les informations sont sauvegardées localement dans le navigateur utilisé.
-- Il n'existe pas encore de système de synchronisation entre plusieurs appareils.
+- La synchronisation Supabase n’est active que si elle est configurée et qu’un compte est connecté.
 - Le stockage local actuel ne constitue pas un dispositif de sécurité adapté aux données médicales.
 - Il est fortement recommandé de travailler exclusivement avec des cas fictifs et de ne pas y saisir de données personnelles ou médicales réelles.
 

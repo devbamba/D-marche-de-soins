@@ -3,6 +3,14 @@ import { createRoot } from "react-dom/client";
 import { NavigationMenu } from "./src/NavigationMenu.jsx";
 import { WizardScreen } from "./src/WizardScreen.jsx";
 import { ReportPreview } from "./src/ReportPreview.jsx";
+import {
+  addUserRecords,
+  deleteUserRecord,
+  listUserRecords,
+  saveUserRecord,
+  subscribeToAuth,
+  supabaseConfigured
+} from "./src/lib/supabase.js";
 
 /* ===== 1. CONFIGURATION : on modifie les champs ici, l’affichage suit ===== */
 const OPT = {
@@ -77,6 +85,9 @@ let navigationRoot = null;
 let navigationResetKey = 0;
 let wizardRoot = null;
 let reportRoot = null;
+let currentUser = null;
+let visibleRecords = [];
+let authUnsubscribe = null;
 const WIZARD_STEPS = [
   {title:"Recueil",description:"Rassemblez les renseignements généraux et les données sur les besoins fondamentaux."},
   {title:"Analyse",description:"Repérez les besoins non satisfaits, établissez les liens et formulez les diagnostics."},
@@ -144,10 +155,10 @@ function closeLandingNavigation({restoreFocus=false}={}){
   $("#landingMenuToggle").setAttribute("aria-label","Ouvrir le menu de navigation");
   if(restoreFocus) $("#landingMenuToggle").focus();
 }
-function setRecordsView(show){
+async function setRecordsView(show){
   if(show){
     try{
-      refreshRecords();
+      await refreshRecords();
     }catch(error){
       setAppMessage(`Impossible de charger les dossiers : ${error instanceof Error?error.message:"données illisibles"}`);
     }
@@ -162,8 +173,8 @@ function readJSON(key, fallback){
 function makeId(){
   return crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
 }
-function recordsKey(){ return RECORDS_KEY; }
-function draftKey(){ return DRAFT_KEY; }
+function recordsKey(){ return currentUser ? `${RECORDS_KEY}.${currentUser.id}` : RECORDS_KEY; }
+function draftKey(){ return currentUser ? `${DRAFT_KEY}.${currentUser.id}` : DRAFT_KEY; }
 function readRecords(){ return readJSON(recordsKey(),[]); }
 function setAppMessage(text,ok=false,kind=""){
   const m=$("#msg");
@@ -184,6 +195,22 @@ function migrateActiveAccountData(){
   }catch(error){
     setAppMessage(`Les anciens dossiers de démonstration n’ont pas pu être importés : ${error instanceof Error?error.message:"stockage local indisponible"}`);
   }
+}
+function initializeCloudSync(){
+  if(!supabaseConfigured||authUnsubscribe) return;
+  authUnsubscribe=subscribeToAuth(({event,user})=>{
+    const previousUserId=currentUser?.id||null;
+    currentUser=user;
+    window.dispatchEvent(new CustomEvent("demarche:account-updated",{detail:{user}}));
+    if(previousUserId===user?.id&&event!=="INITIAL_SESSION") return;
+    window.setTimeout(()=>{
+      if(currentUser?.id!==user?.id) return;
+      if(previousUserId!==user?.id) loadCurrentDraft();
+      else refreshRecords().catch(error=>{
+          setAppMessage(`Impossible de charger les dossiers : ${error instanceof Error?error.message:"erreur de stockage"}`);
+        });
+    },0);
+  });
 }
 
 /* ===== 3. AFFICHAGE ===== */
@@ -312,11 +339,32 @@ const HINTS = {
   recreer:["Énergie et capacité physique pour les loisirs","Ennui, plaisir, humeur, intérêt pour les activités, moral","Loisirs habituels, vie sociale, visites, accès à la radio, à la télévision, au téléphone"],
   apprendre:["Concentration, mémoire, vue, audition, niveau de conscience, fatigue limitant l’apprentissage","Motivation, compréhension de la maladie, anxiété, ouverture à l’éducation","Niveau d’instruction, langue, connaissances sur la maladie et le traitement, rôle de l’entourage"]
 };
-function refreshRecords(){
-  const records=readRecords();
-  if(!Array.isArray(records)) throw new Error("La liste des dossiers locaux est illisible.");
-  records.sort((a,b)=>b.savedAt.localeCompare(a.savedAt));
-  window.dispatchEvent(new CustomEvent("demarche:records-updated",{detail:{records}}));
+async function refreshRecords(){
+  if(currentUser){
+    const userId=currentUser.id;
+    try{
+      const records=await listUserRecords(userId);
+      if(currentUser?.id!==userId) return;
+      visibleRecords=records;
+      try{
+        localStorage.setItem(recordsKey(),JSON.stringify(records));
+        $("#status").textContent="Dossiers synchronisés avec votre compte Supabase.";
+      }catch(error){
+        $("#status").textContent=`Dossiers chargés depuis Supabase, mais la copie hors ligne n’a pas pu être enregistrée : ${error instanceof Error?error.message:"stockage indisponible"}`;
+      }
+    }catch(error){
+      if(currentUser?.id!==userId) return;
+      const cached=readRecords();
+      if(!Array.isArray(cached)) throw new Error("La liste des dossiers hors ligne est illisible.");
+      visibleRecords=cached.sort((a,b)=>b.savedAt.localeCompare(a.savedAt));
+      $("#status").textContent=`Synchronisation indisponible : affichage de la copie locale. ${error instanceof Error?error.message:"erreur réseau"}`;
+    }
+  }else{
+    const records=readRecords();
+    if(!Array.isArray(records)) throw new Error("La liste des dossiers locaux est illisible.");
+    visibleRecords=records.sort((a,b)=>b.savedAt.localeCompare(a.savedAt));
+  }
+  window.dispatchEvent(new CustomEvent("demarche:records-updated",{detail:{records:visibleRecords}}));
 }
 function saveDraft(){
   try{
@@ -336,7 +384,9 @@ function loadCurrentDraft(){
     const draft=readJSON(draftKey(),null);
     if(draft&&draft.data&&typeof draft.data==="object") loadIntoForm(draft.data,draft.recordId||null);
     else loadIntoForm({},null);
-    refreshRecords();
+    refreshRecords().catch(error=>{
+      setAppMessage(`Impossible de charger les dossiers : ${error instanceof Error?error.message:"données illisibles"}`);
+    });
   }catch(error){
     setAppMessage(`Impossible de charger les dossiers locaux : ${error instanceof Error?error.message:"données illisibles"}`);
   }
@@ -359,7 +409,7 @@ function startNewRecord(){
 }
 function openSavedRecord(id){
   try{
-    const record=readRecords().find(item=>item.id===id);
+    const record=visibleRecords.find(item=>item.id===id)||readRecords().find(item=>item.id===id);
     if(!record) throw new Error("Ce dossier n’existe plus dans le stockage local.");
     loadIntoForm(record.data,record.id);
     saveDraft();
@@ -369,14 +419,15 @@ function openSavedRecord(id){
     setAppMessage(`Impossible d’ouvrir le dossier : ${error instanceof Error?error.message:"données illisibles"}`);
   }
 }
-function deleteSavedRecord(id){
+async function deleteSavedRecord(id){
   if(!window.confirm("Supprimer définitivement ce dossier de ce navigateur ?")) return;
   try{
+    if(currentUser) await deleteUserRecord(id,currentUser.id);
     const records=readRecords().filter(record=>record.id!==id);
     localStorage.setItem(recordsKey(),JSON.stringify(records));
     if(currentRecordId===id) startNewRecord();
-    refreshRecords();
-    setAppMessage("Dossier supprimé de ce navigateur.",true);
+    await refreshRecords();
+    setAppMessage(currentUser?"Dossier supprimé de votre compte.":"Dossier supprimé de ce navigateur.",true);
   }catch(error){
     setAppMessage(`Impossible de supprimer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
   }
@@ -501,7 +552,7 @@ function allowedKeys(){
 }
 function exportRecords(){
   try{
-    const records=readRecords();
+    const records=currentUser?visibleRecords:readRecords();
     if(!Array.isArray(records)||!records.length){ setAppMessage("Aucun dossier enregistré à sauvegarder."); return; }
     const payload={app:"demarche-soins",version:1,exportedAt:new Date().toISOString(),records};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
@@ -532,7 +583,7 @@ async function importRecords(file){
     try{ payload=JSON.parse(await file.text()); }
     catch(e){ throw new Error("ce fichier n’est pas un JSON valide."); }
     if(!payload||payload.app!=="demarche-soins"||!Array.isArray(payload.records)) throw new Error("ce fichier n’est pas une sauvegarde de cette application.");
-    const current=readRecords();
+    const current=readJSON(RECORDS_KEY,[]);
     if(!Array.isArray(current)) throw new Error("la liste des dossiers locaux est illisible.");
     let added=0,updated=0,ignored=0;
     payload.records.forEach(raw=>{
@@ -543,11 +594,28 @@ async function importRecords(file){
       else if(rec.savedAt>current[i].savedAt){ current[i]=rec; updated++; }
       else ignored++;
     });
-    localStorage.setItem(recordsKey(),JSON.stringify(current));
-    refreshRecords();
-    setAppMessage(`Restauration terminée : ${added} ajouté(s), ${updated} mis à jour, ${ignored} ignoré(s).`,true);
+    localStorage.setItem(RECORDS_KEY,JSON.stringify(current));
+    if(!currentUser) await refreshRecords();
+    setAppMessage(currentUser
+      ?`Restauration terminée dans ce navigateur : ${added} ajouté(s), ${updated} mis à jour, ${ignored} ignoré(s). Utilisez « Importer les dossiers locaux dans mon compte » pour les synchroniser.`
+      :`Restauration terminée : ${added} ajouté(s), ${updated} mis à jour, ${ignored} ignoré(s).`,true);
   }catch(error){
     setAppMessage(`Restauration impossible : ${error instanceof Error?error.message:"erreur inconnue"}`);
+  }
+}
+async function importLocalRecordsToAccount(){
+  if(!currentUser) return;
+  try{
+    const localRecords=readJSON(RECORDS_KEY,[]);
+    if(!Array.isArray(localRecords)) throw new Error("La liste des dossiers locaux est illisible.");
+    const remoteRecords=await listUserRecords(currentUser.id);
+    const remoteIds=new Set(remoteRecords.map(record=>record.id));
+    const pending=localRecords.map(cleanRecord).filter(record=>record&&!remoteIds.has(record.id));
+    const added=await addUserRecords(pending,currentUser.id);
+    await refreshRecords();
+    setAppMessage(`${added} dossier(s) local(aux) importé(s) dans votre compte. Les dossiers déjà présents n’ont pas été remplacés.`,true);
+  }catch(error){
+    setAppMessage(`Import vers Supabase impossible : ${error instanceof Error?error.message:"erreur inconnue"}`);
   }
 }
 
@@ -668,7 +736,7 @@ document.addEventListener("click",e=>{
     if(recordButton.dataset.recordAction==="open") openSavedRecord(recordButton.dataset.recordId);
     else if(recordButton.dataset.recordAction==="pdf"){
       try{
-        const record=readRecords().find(item=>item.id===recordButton.dataset.recordId);
+        const record=visibleRecords.find(item=>item.id===recordButton.dataset.recordId)||readRecords().find(item=>item.id===recordButton.dataset.recordId);
         if(record) showReportPreview(record.data);
         else setAppMessage("Ce dossier n’existe plus dans le stockage local.");
       }catch(error){
@@ -688,6 +756,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#backToForm")){ setRecordsView(false); return; }
   if(e.target.closest("#exportRecords")){ exportRecords(); return; }
   if(e.target.closest("#importRecords")){ $("#importFile").click(); return; }
+  if(e.target.closest("#syncLocalRecords")){ importLocalRecordsToAccount(); return; }
   if(e.target.closest("#installApp")){ installApp(); return; }
   const appearanceToggle=e.target.closest("[data-appearance-toggle]");
   if(appearanceToggle){
@@ -805,8 +874,9 @@ function validateData(){
   setAppMessage("");
   return true;
 }
-function save(){
+async function save(){
   if(!validateData()) return;
+  let localSaved=false;
   try{
     const records=readRecords();
     if(!Array.isArray(records)) throw new Error("La liste des dossiers locaux est illisible.");
@@ -817,12 +887,25 @@ function save(){
     if(existingIndex>=0) records[existingIndex]=record;
     else records.push(record);
     localStorage.setItem(recordsKey(),JSON.stringify(records));
+    localSaved=true;
     currentRecordId=record.id;
     localStorage.setItem(draftKey(),JSON.stringify({recordId:currentRecordId,data:{...data}}));
-    refreshRecords();
-    setAppMessage("Dossier enregistré dans ce navigateur.",true);
+    if(currentUser){
+      await saveUserRecord(record,currentUser.id);
+      await refreshRecords();
+      setAppMessage("Dossier enregistré et synchronisé avec votre compte Supabase.",true);
+    }else{
+      await refreshRecords();
+      setAppMessage("Dossier enregistré dans ce navigateur.",true);
+    }
   }catch(error){
-    setAppMessage(`Impossible d’enregistrer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
+    if(currentUser&&localSaved){
+      visibleRecords=readRecords();
+      window.dispatchEvent(new CustomEvent("demarche:records-updated",{detail:{records:visibleRecords}}));
+      setAppMessage(`Le dossier est conservé localement, mais la synchronisation Supabase a échoué : ${error instanceof Error?error.message:"erreur inconnue"}`);
+    }else{
+      setAppMessage(`Impossible d’enregistrer le dossier : ${error instanceof Error?error.message:"stockage indisponible"}`);
+    }
   }
 }
 document.addEventListener("change",e=>{
@@ -858,5 +941,6 @@ export function initializeLegacyApp(){
   initializeAppearance();
   loadCurrentDraft();
   build();
+  initializeCloudSync();
   enableOfflineApp();
 }

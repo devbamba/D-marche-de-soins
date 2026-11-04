@@ -36,6 +36,17 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
 .msg{color:var(--warn);margin:8px 0}
 .msg.ok{color:var(--ok)}
 .status{color:var(--mute);font-size:.8rem;margin:4px 0}
+.account-panel{margin:0 0 14px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.account-panel h2{margin:0 0 10px;font-size:1.05rem}
+.account-panel>p,.account-session p{margin:0;color:var(--mute);font-size:.88rem}
+.account-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.account-form label{display:flex;flex-direction:column;gap:4px;font-size:.86rem}
+.account-form input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font:inherit}
+.account-actions{display:flex;align-items:flex-end;flex-wrap:wrap;gap:8px;grid-column:1/-1}
+.account-actions .btn,.account-session .btn{padding:8px 12px;font-size:.85rem}
+.account-session{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.account-message{margin:10px 0 0;color:var(--mute);font-size:.84rem;overflow-wrap:anywhere}
+.btn:disabled{opacity:.6;cursor:wait}
 
 /* ===== Page de présentation ===== */
 .landing-page{min-height:100vh;overflow:hidden;background:var(--bg);color:var(--ink)}
@@ -399,6 +410,8 @@ fieldset>.lab{margin:0 0 8px}
 @media (max-width:700px){.bh{display:none}.br{grid-template-columns:1fr}.cap{display:block}}
 @media (max-width:560px){
   .grid{grid-template-columns:1fr}
+  .account-form{grid-template-columns:1fr}
+  .account-session{align-items:flex-start;flex-direction:column}
   .record-row{align-items:flex-start;flex-direction:column}
   .records-heading{align-items:flex-start;flex-direction:column}
   .pdf-preview .print-report{padding:12px}

@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
 import { LandingPage } from "./LandingPage.jsx";
 import { RecordsList } from "./RecordsList.jsx";
+import { AccountPanel } from "./AccountPanel.jsx";
+import { supabaseConfigured } from "./lib/supabase.js";
 
 export function AppShell({ onReady }) {
   const [view, setView] = useState("landing");
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const handleViewChange = event => setView(event.detail.view);
+    const handleAccountChange = event => setUser(event.detail.user);
     window.addEventListener("demarche:view", handleViewChange);
+    window.addEventListener("demarche:account-updated", handleAccountChange);
     onReady();
-    return () => window.removeEventListener("demarche:view", handleViewChange);
+    return () => {
+      window.removeEventListener("demarche:view", handleViewChange);
+      window.removeEventListener("demarche:account-updated", handleAccountChange);
+    };
   }, [onReady]);
 
   useEffect(() => {
@@ -34,6 +42,7 @@ export function AppShell({ onReady }) {
           </div>
           <nav id="nav" className="nav hidden" aria-label="Navigation principale"/>
         </header>
+        <AccountPanel />
         <button type="button" className="btn alt install-app hidden" id="installApp">Installer l’application</button>
         <section id="recordsPanel" className={`records-panel${view === "records" ? "" : " hidden"}`} aria-labelledby="recordsHeading">
           <div className="records-heading">
@@ -44,9 +53,10 @@ export function AppShell({ onReady }) {
             <button type="button" className="btn alt" id="newRecord">Nouveau dossier</button>
             <button type="button" className="btn alt" id="exportRecords">Sauvegarder (JSON)</button>
             <button type="button" className="btn alt" id="importRecords">Restaurer</button>
+            {supabaseConfigured && user && <button type="button" className="btn alt" id="syncLocalRecords">Importer les dossiers locaux dans mon compte</button>}
             <input type="file" id="importFile" accept=".json,application/json" className="hidden" aria-label="Choisir un fichier de sauvegarde"/>
           </div>
-          <p className="demo-warning compact">Stockage local à ce navigateur : les dossiers ne sont pas synchronisés et peuvent être effacés en supprimant les données du navigateur.</p>
+          <p className="demo-warning compact">{user ? "Les dossiers de votre compte sont synchronisés avec Supabase. Le brouillon reste local à ce navigateur." : "Stockage local à ce navigateur : les dossiers ne sont pas synchronisés et peuvent être effacés en supprimant les données du navigateur."}</p>
           <div id="recordsList"><RecordsList/></div>
         </section>
         <div id="msg" className="msg" role="alert"/>
