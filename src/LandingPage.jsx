@@ -66,12 +66,7 @@ export function LandingPage({ hidden = false, user, accountPanel }) {
             <div className="showcase-orbit orbit-two"/>
           </div>
         </section>
-        <section className="landing-account" id="connexion" aria-labelledby="accountHeading">
-          <div className="landing-account-heading">
-            <p className="landing-eyebrow">Votre espace sécurisé</p>
-            <h2 id="accountHeading">{user ? "Votre compte" : "Connexion ou création de compte"}</h2>
-            <p>Connectez-vous pour ouvrir l’espace de travail et retrouver vos dossiers.</p>
-          </div>
+        <section className="landing-account" id="connexion" aria-label="Connexion ou création de compte">
           {accountPanel}
         </section>
         <section className="landing-features" id="fonctionnalites">
@@ -86,10 +81,6 @@ export function LandingPage({ hidden = false, user, accountPanel }) {
             <article className="feature-card"><span className="feature-icon icon-violet" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 4 27 9v7c0 6.4-4.5 10.6-11 13-6.5-2.4-11-6.6-11-13V9z"/><path d="m11 16 3.2 3.2L21.5 12"/></svg></span><h3>Préparer les soins</h3><p>Formulez des diagnostics, des objectifs mesurables et des interventions adaptées.</p></article>
             <article className="feature-card"><span className="feature-icon icon-amber" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 26V17M13 26V11M21 26V6M29 26V14"/><path d="m4 11 8-4 8 2 8-5M24 4h4v4"/></svg></span><h3>Suivre sa progression</h3><p>Visualisez les sections renseignées et repérez les objectifs qu’il reste à compléter.</p></article>
           </div>
-        </section>
-        <section className="landing-bottom">
-          <div><p className="landing-eyebrow">Prêt à commencer ?</p><h2>Ouvrez votre espace de travail.</h2><p>Créez un dossier fictif et suivez les étapes de la démarche.</p></div>
-          {user ? <button type="button" className="btn landing-primary" data-open-app>Accéder à l’application <span aria-hidden="true">→</span></button> : <a className="btn landing-primary" href="#connexion">Se connecter ou créer un compte <span aria-hidden="true">→</span></a>}
         </section>
       </main>
       <footer className="landing-footer"><span>Démarche de soins</span><span>Outil pédagogique de démonstration · Patients fictifs uniquement</span></footer>

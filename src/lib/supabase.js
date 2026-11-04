@@ -31,12 +31,33 @@ export async function signInWithProvider(provider) {
   if (error) throw error;
 }
 
-export async function signUpWithPassword(email, password) {
+export async function sendSignupCode(email, fullName) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
-  const { error } = await supabase.auth.signUp({
+  const redirectUrl = new URL(window.location.href);
+  redirectUrl.hash = "";
+  redirectUrl.search = "?auth=signup";
+  const { error } = await supabase.auth.signInWithOtp({
     email,
+    options: {
+      shouldCreateUser: true,
+      data: { full_name: fullName },
+      emailRedirectTo: redirectUrl.toString()
+    }
+  });
+  if (error) throw error;
+}
+
+export async function verifySignupCode(email, token) {
+  if (!supabase) throw new Error("Supabase n’est pas configuré.");
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+  if (error) throw error;
+}
+
+export async function completeSignup(fullName, password) {
+  if (!supabase) throw new Error("Supabase n’est pas configuré.");
+  const { error } = await supabase.auth.updateUser({
     password,
-    options: { emailRedirectTo: window.location.href.split("#")[0] }
+    data: { full_name: fullName }
   });
   if (error) throw error;
 }

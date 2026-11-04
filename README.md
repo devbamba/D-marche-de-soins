@@ -26,7 +26,7 @@ La version actuelle du projet propose :
 - Histoire de la maladie : aide à la rédaction et à la structuration des informations.
 - Constantes vitales : saisie des paramètres physiologiques et calcul automatique de l'IMC.
 - Analyse et planification : besoins non satisfaits, liens entre les éléments, diagnostics, objectifs, interventions et plan de soins.
-- Accès réservé aux comptes connectés : inscription et connexion par e-mail, Google ou GitHub lorsqu’ils sont activés dans Supabase.
+- Accès réservé aux comptes connectés : inscription par e-mail en plusieurs étapes avec code de vérification, connexion par e-mail et mot de passe, ou connexion avec Google.
 - Synchronisation Supabase des dossiers du compte et reprise des brouillons locaux dans le navigateur.
 - Prévisualisation et impression : génération d'un document imprimable pouvant être enregistré au format PDF.
 
@@ -68,9 +68,9 @@ L’accès à l’application nécessite une session Supabase. Configurez le pro
 
 1. Créez un projet Supabase et exécutez le script [supabase/schema.sql](./supabase/schema.sql) dans le SQL Editor. La table utilise Row Level Security (RLS) pour que chaque compte n’accède qu’à ses dossiers.
 2. Dans **Authentication → URL Configuration**, définissez l’URL du site publiée et ajoutez-la aux URL de redirection autorisées. Pour GitHub Pages, l’URL ressemble à `https://<utilisateur>.github.io/<depot>/`.
-3. Pour activer **Google** ou **GitHub**, ouvrez **Authentication → Sign In / Providers**, activez le fournisseur choisi et saisissez ses identifiants OAuth. Pour Google, créez un identifiant OAuth dans Google Cloud Console et utilisez l’URL de rappel affichée par Supabase comme URI de redirection autorisée. Ces identifiants OAuth ne sont pas ceux des utilisateurs de l’application.
+3. Pour activer **Google**, ouvrez **Authentication → Sign In / Providers**, activez Google et saisissez ses identifiants OAuth. Créez un identifiant OAuth dans Google Cloud Console et utilisez l’URL de rappel affichée par Supabase comme URI de redirection autorisée. Ces identifiants OAuth ne sont pas ceux des utilisateurs de l’application.
 4. Copiez [.env.example](./.env.example) vers `.env.local`, puis remplacez les valeurs par l’URL du projet et sa clé **publishable** (ou clé `anon`). Ne renseignez jamais une clé `service_role` dans l’application.
-5. Lancez `npm run dev`. L’accès aux dossiers est réservé aux utilisateurs connectés. L’inscription et la connexion sont disponibles depuis la page d’accueil, par e-mail ou via les fournisseurs OAuth activés. Les brouillons restent locaux ; les dossiers enregistrés sont synchronisés avec le compte connecté.
+5. Pour recevoir un code numérique plutôt qu’un lien, configurez le modèle d’e-mail **Confirm signup** de Supabase pour afficher `{{ .Token }}`. Lancez `npm run dev`. L’accès aux dossiers est réservé aux utilisateurs connectés. L’inscription se fait depuis l’accueil en indiquant le nom, l’e-mail, le code reçu puis un mot de passe ; la connexion s’effectue par e-mail/mot de passe ou Google. Les brouillons restent locaux ; les dossiers enregistrés sont synchronisés avec le compte connecté.
 6. Pour GitHub Pages, ajoutez les variables de dépôt `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` dans **Settings → Secrets and variables → Actions → Variables**, puis relancez le workflow de déploiement.
 7. Les dossiers locaux déjà enregistrés ne sont pas envoyés automatiquement. Connectez-vous, ouvrez **Mes dossiers** et utilisez **Importer les dossiers locaux dans mon compte**. Les dossiers déjà présents dans le compte ne sont pas remplacés.
 
