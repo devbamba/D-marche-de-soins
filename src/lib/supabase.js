@@ -31,7 +31,7 @@ export async function signInWithProvider(provider) {
   if (error) throw error;
 }
 
-export async function sendSignupCode(email, fullName) {
+export async function sendSignupLink(email, fullName) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const redirectUrl = new URL(window.location.href);
   redirectUrl.hash = "";
@@ -44,12 +44,6 @@ export async function sendSignupCode(email, fullName) {
       emailRedirectTo: redirectUrl.toString()
     }
   });
-  if (error) throw error;
-}
-
-export async function verifySignupCode(email, token) {
-  if (!supabase) throw new Error("Supabase n’est pas configuré.");
-  const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error) throw error;
 }
 

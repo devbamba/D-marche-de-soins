@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   completeSignup,
-  sendSignupCode,
+  sendSignupLink,
   signInWithProvider,
   signInWithPassword,
   signOut,
-  supabaseConfigured,
-  verifySignupCode
+  supabaseConfigured
 } from "./lib/supabase.js";
 
 export function AccountPanel({ user, authReady, onSignedOut }) {
@@ -15,7 +14,6 @@ export function AccountPanel({ user, authReady, onSignedOut }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const signupLinkCallback = user?.user_metadata?.signup_flow === "email_password";
@@ -43,33 +41,16 @@ export function AccountPanel({ user, authReady, onSignedOut }) {
     }
   }
 
-  async function sendCode(event) {
-    event.preventDefault();
+  async function requestSignupLink(event) {
+    event?.preventDefault();
     setBusy(true);
     setMessage("");
     try {
-      await sendSignupCode(email.trim(), fullName.trim());
-      setSignupStep("code");
-      setCode("");
-      setMessage(`Demande envoyée à ${email.trim()}. Si le message contient un lien plutôt qu’un code, configurez le modèle « Magic link or OTP » de Supabase pour afficher {{ .Token }}.`);
+      await sendSignupLink(email.trim(), fullName.trim());
+      setSignupStep("linkSent");
+      setMessage(`Un lien de vérification a été envoyé à ${email.trim()}. Ouvrez-le pour revenir ici et choisir votre mot de passe.`);
     } catch (error) {
-      setMessage(`Envoi du code impossible : ${error.message}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verifyCode(event) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage("");
-    try {
-      await verifySignupCode(email.trim(), code.trim());
-      setSignupStep("password");
-      setPassword("");
-      setMessage("Adresse e-mail vérifiée. Choisissez maintenant un mot de passe.");
-    } catch (error) {
-      setMessage(`Vérification impossible : ${error.message}`);
+      setMessage(`Envoi du lien impossible : ${error.message}`);
     } finally {
       setBusy(false);
     }
@@ -121,21 +102,19 @@ export function AccountPanel({ user, authReady, onSignedOut }) {
     setMode("signup");
     setSignupStep("name");
     setPassword("");
-    setCode("");
     setMessage("");
   }
 
   function showSignin() {
     setMode("signin");
     setPassword("");
-    setCode("");
     setMessage("");
   }
 
   const signupDescription = {
     name: "Étape 1 sur 4 · Indiquez votre nom complet.",
     email: "Étape 2 sur 4 · Saisissez votre adresse e-mail.",
-    code: "Étape 3 sur 4 · Vérifiez votre adresse e-mail.",
+    linkSent: "Étape 3 sur 4 · Ouvrez le lien envoyé dans votre boîte e-mail.",
     password: "Étape 4 sur 4 · Choisissez un mot de passe."
   };
   const activeMode = signupLinkCallback && user ? "signup" : mode;
@@ -201,37 +180,22 @@ export function AccountPanel({ user, authReady, onSignedOut }) {
               </div>
             </form>
           ) : activeSignupStep === "email" ? (
-            <form className="account-form" onSubmit={sendCode}>
+            <form className="account-form" onSubmit={requestSignupLink}>
               <label>
                 Adresse e-mail
                 <input type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} />
               </label>
               <div className="account-actions">
-                <button type="submit" className="btn" disabled={busy}>{busy ? "Envoi en cours…" : "Recevoir le code"}</button>
+                <button type="submit" className="btn" disabled={busy}>{busy ? "Envoi en cours…" : "Recevoir le lien de vérification"}</button>
               </div>
               <button type="button" className="account-back" disabled={busy} onClick={() => { setSignupStep("name"); setMessage(""); }}>← Modifier le nom</button>
             </form>
-          ) : activeSignupStep === "code" ? (
-            <form className="account-form" onSubmit={verifyCode}>
-              <label>
-                Code reçu par e-mail
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  required
-                  value={code}
-                  onChange={event => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                />
-              </label>
-              <div className="account-actions">
-                <button type="submit" className="btn" disabled={busy}>{busy ? "Vérification…" : "Vérifier le code"}</button>
-              </div>
-              <button type="button" className="account-back" disabled={busy} onClick={sendCode}>Renvoyer le code</button>
+          ) : activeSignupStep === "linkSent" ? (
+            <div className="account-form">
+              <p className="account-link-help">Consultez votre boîte de réception et vos courriers indésirables. Le lien vous ramènera sur cette application.</p>
+              <button type="button" className="btn" disabled={busy} onClick={requestSignupLink}>{busy ? "Envoi en cours…" : "Renvoyer le lien"}</button>
               <button type="button" className="account-back" disabled={busy} onClick={() => { setSignupStep("email"); setMessage(""); }}>← Modifier l’adresse e-mail</button>
-            </form>
+            </div>
           ) : (
             <form className="account-form" onSubmit={finishSignup}>
               <label>

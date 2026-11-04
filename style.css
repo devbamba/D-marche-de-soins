@@ -63,6 +63,7 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
 .account-back{justify-self:center;padding:0;border:0;background:none;color:var(--acc);font:inherit;font-size:.84rem;font-weight:650;cursor:pointer}
 .account-back:hover{text-decoration:underline}
 .account-back:disabled{opacity:.6;cursor:wait}
+.account-link-help{margin:0;color:var(--mute);font-size:.88rem}
 .btn:disabled{opacity:.6;cursor:wait}
 
 /* ===== Page de présentation ===== */
