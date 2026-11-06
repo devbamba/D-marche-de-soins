@@ -26,8 +26,8 @@ La version actuelle du projet propose :
 - Histoire de la maladie : aide à la rédaction et à la structuration des informations.
 - Constantes vitales : saisie des paramètres physiologiques et calcul automatique de l'IMC.
 - Analyse et planification : besoins non satisfaits, liens entre les éléments, diagnostics, objectifs, interventions et plan de soins.
-- Accès réservé aux comptes connectés : inscription par e-mail en plusieurs étapes avec code de vérification, connexion par e-mail et mot de passe, ou connexion avec Google.
-- Synchronisation Supabase des dossiers du compte et reprise des brouillons locaux dans le navigateur.
+- Accès temporairement ouvert sans création de compte ni connexion ; les dossiers peuvent être enregistrés localement dans le navigateur.
+- Synchronisation Supabase facultative lorsque l’utilisateur est déjà connecté, avec reprise des brouillons locaux dans le navigateur.
 - Prévisualisation et impression : génération d'un document imprimable pouvant être enregistré au format PDF.
 
 🚀 Fonctionnalités envisagées
@@ -64,13 +64,13 @@ Tous les écrans et champs de l'application sont maintenant rendus par React, y 
 
 ### Activer Supabase
 
-L’accès à l’application nécessite une session Supabase. Configurez le projet avant de lancer l’application :
+La configuration Supabase est facultative pour utiliser l’application localement. Elle permet de synchroniser les dossiers avec un compte connecté. Configurez le projet si vous souhaitez activer cette synchronisation :
 
 1. Créez un projet Supabase et exécutez le script [supabase/schema.sql](./supabase/schema.sql) dans le SQL Editor. La table utilise Row Level Security (RLS) pour que chaque compte n’accède qu’à ses dossiers.
 2. Dans **Authentication → URL Configuration**, définissez l’URL du site publiée et ajoutez-la aux URL de redirection autorisées. Pour GitHub Pages, l’URL ressemble à `https://<utilisateur>.github.io/<depot>/`.
 3. Pour activer **Google**, ouvrez **Authentication → Sign In / Providers**, activez Google et saisissez ses identifiants OAuth. Créez un identifiant OAuth dans Google Cloud Console et utilisez l’URL de rappel affichée par Supabase comme URI de redirection autorisée. Ces identifiants OAuth ne sont pas ceux des utilisateurs de l’application.
 4. Copiez [.env.example](./.env.example) vers `.env.local`, puis remplacez les valeurs par l’URL du projet et sa clé **publishable** (ou clé `anon`). Ne renseignez jamais une clé `service_role` dans l’application.
-5. Lancez `npm run dev`. L’accès aux dossiers est réservé aux utilisateurs connectés. L’inscription envoie un lien de vérification par e-mail ; ouvrez ce lien pour revenir à l’application et choisir un mot de passe. La connexion s’effectue par e-mail/mot de passe ou Google. Les brouillons restent locaux ; les dossiers enregistrés sont synchronisés avec le compte connecté. Pour utiliser un code numérique au lieu du lien, configurez un SMTP personnalisé dans **Authentication → Emails → SMTP Settings** (les modèles par défaut ne sont pas modifiables), puis dans **Authentication → Emails → Templates → Magic link or OTP**, remplacez `{{ .ConfirmationURL }}` par `{{ .Token }}`. C’est le modèle utilisé par l’inscription de l’application ; modifier **Confirm sign up** seul ne suffit pas.
+5. Lancez `npm run dev`. L’application reste utilisable sans compte et enregistre les dossiers dans le navigateur. Les utilisateurs déjà connectés peuvent continuer à synchroniser leurs dossiers avec Supabase.
 6. Pour GitHub Pages, ajoutez les variables de dépôt `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` dans **Settings → Secrets and variables → Actions → Variables**, puis relancez le workflow de déploiement.
 7. Les dossiers locaux déjà enregistrés ne sont pas envoyés automatiquement. Connectez-vous, ouvrez **Mes dossiers** et utilisez **Importer les dossiers locaux dans mon compte**. Les dossiers déjà présents dans le compte ne sont pas remplacés.
 
@@ -106,7 +106,7 @@ Cette application est actuellement un outil pédagogique en développement.
 
 - Elle est destinée à l'apprentissage de la démarche de soins infirmiers.
 - Les informations sont sauvegardées localement dans le navigateur utilisé.
-- L’accès aux dossiers et leur synchronisation nécessitent un compte Supabase connecté.
+- Sans connexion, les dossiers sont enregistrés dans le navigateur et ne sont pas synchronisés entre appareils.
 - Le stockage local actuel ne constitue pas un dispositif de sécurité adapté aux données médicales.
 - Il est fortement recommandé de travailler exclusivement avec des cas fictifs et de ne pas y saisir de données personnelles ou médicales réelles.
 

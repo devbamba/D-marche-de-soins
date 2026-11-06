@@ -1,46 +1,28 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { LandingPage } from "./LandingPage.jsx";
 import { RecordsList } from "./RecordsList.jsx";
-import { AccountPanel } from "./AccountPanel.jsx";
 import { subscribeToAuth, supabaseConfigured } from "./lib/supabase.js";
 
 export function AppShell({ onReady }) {
   const publicLanding = new URLSearchParams(window.location.search).get("landing") === "promo";
   const [view, setView] = useState("landing");
   const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(!supabaseConfigured);
-  const userRef = useRef(user);
-  userRef.current = user;
 
   useEffect(() => {
     if (publicLanding) return;
     const handleViewChange = event => {
-      if (event.detail.view !== "landing" && !userRef.current) {
-        setView("landing");
-        document.querySelector("#connexion")?.scrollIntoView({ behavior: "smooth" });
-        document.querySelector("#connexion input")?.focus({ preventScroll: true });
-        return;
-      }
       setView(event.detail.view);
     };
-    const handleAccountChange = event => setUser(event.detail.user);
     window.addEventListener("demarche:view", handleViewChange);
-    window.addEventListener("demarche:account-updated", handleAccountChange);
     onReady();
     const unsubscribe = subscribeToAuth(({ user: nextUser }) => {
       setUser(nextUser);
-      setAuthReady(true);
     });
     return () => {
       window.removeEventListener("demarche:view", handleViewChange);
-      window.removeEventListener("demarche:account-updated", handleAccountChange);
       unsubscribe();
     };
   }, [onReady, publicLanding]);
-
-  useEffect(() => {
-    if (!user && view !== "landing") setView("landing");
-  }, [user, view]);
 
   useEffect(() => {
     if (view === "records") document.querySelector("#recordsHeading")?.focus();
@@ -54,8 +36,6 @@ export function AppShell({ onReady }) {
     <>
       <LandingPage
         hidden={view !== "landing"}
-        user={user}
-        accountPanel={<AccountPanel user={user} authReady={authReady} onSignedOut={() => setView("landing")}/>}
       />
       <div className={`wrap app-view${view === "landing" ? " hidden" : ""}`} id="appView">
         <header className="top">
