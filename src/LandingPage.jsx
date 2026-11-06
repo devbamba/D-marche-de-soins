@@ -1,4 +1,9 @@
-export function LandingPage({ hidden = false, user, accountPanel }) {
+export function LandingPage({ hidden = false, user, accountPanel, publicOnly = false }) {
+  const appUrl = new URL(window.location.href);
+  appUrl.searchParams.delete("landing");
+  appUrl.hash = "connexion";
+  const accountUrl = `${appUrl.pathname}${appUrl.search}${appUrl.hash}`;
+
   return (
     <div className={`landing-page${hidden ? " hidden" : ""}`} id="landingPage">
       <header className="landing-header">
@@ -12,7 +17,11 @@ export function LandingPage({ hidden = false, user, accountPanel }) {
         <nav className="landing-nav" id="landingNav" aria-label="Navigation de présentation">
           <span className="landing-nav-title">Navigation</span>
           <a href="#fonctionnalites">Fonctionnalités</a>
-          {user ? <button type="button" className="btn landing-nav-cta" data-open-app>Ouvrir l’application <span aria-hidden="true">→</span></button> : <a className="btn landing-nav-cta" href="#connexion">Se connecter</a>}
+          {publicOnly
+            ? <a className="btn landing-nav-cta" href={accountUrl}>Découvrir l’application <span aria-hidden="true">→</span></a>
+            : user
+              ? <button type="button" className="btn landing-nav-cta" data-open-app>Ouvrir l’application <span aria-hidden="true">→</span></button>
+              : <a className="btn landing-nav-cta" href="#connexion">Se connecter</a>}
         </nav>
       </header>
       <main id="accueil">
@@ -22,7 +31,11 @@ export function LandingPage({ hidden = false, user, accountPanel }) {
             <h1>Construisez votre démarche de soins, <span>étape par étape.</span></h1>
             <p className="landing-description">Du recueil de données au plan de soins, retrouvez vos repères dans un espace clair, conçu pour vous accompagner dans votre travail.</p>
             <div className="landing-actions">
-              {user ? <button type="button" className="btn landing-primary" data-open-app>Accéder à l’application <span aria-hidden="true">→</span></button> : <a className="btn landing-primary" href="#connexion">Se connecter ou créer un compte <span aria-hidden="true">→</span></a>}
+              {publicOnly
+                ? <a className="btn landing-primary" href={accountUrl}>Découvrir l’application <span aria-hidden="true">→</span></a>
+                : user
+                  ? <button type="button" className="btn landing-primary" data-open-app>Accéder à l’application <span aria-hidden="true">→</span></button>
+                  : <a className="btn landing-primary" href="#connexion">Se connecter ou créer un compte <span aria-hidden="true">→</span></a>}
               <a className="landing-secondary" href="#fonctionnalites">Voir les fonctionnalités <span aria-hidden="true">↓</span></a>
             </div>
             <p className="landing-note"><span aria-hidden="true">✓</span> Accès réservé aux comptes connectés · Utilisez uniquement des cas fictifs</p>
@@ -66,9 +79,11 @@ export function LandingPage({ hidden = false, user, accountPanel }) {
             <div className="showcase-orbit orbit-two"/>
           </div>
         </section>
-        <section className="landing-account" id="connexion" aria-label="Connexion ou création de compte">
-          {accountPanel}
-        </section>
+        {!publicOnly && (
+          <section className="landing-account" id="connexion" aria-label="Connexion ou création de compte">
+            {accountPanel}
+          </section>
+        )}
         <section className="landing-features" id="fonctionnalites">
           <div className="features-heading">
             <p className="landing-eyebrow">Un accompagnement structuré</p>

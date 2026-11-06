@@ -5,6 +5,7 @@ import { AccountPanel } from "./AccountPanel.jsx";
 import { subscribeToAuth, supabaseConfigured } from "./lib/supabase.js";
 
 export function AppShell({ onReady }) {
+  const publicLanding = new URLSearchParams(window.location.search).get("landing") === "promo";
   const [view, setView] = useState("landing");
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(!supabaseConfigured);
@@ -12,6 +13,7 @@ export function AppShell({ onReady }) {
   userRef.current = user;
 
   useEffect(() => {
+    if (publicLanding) return;
     const handleViewChange = event => {
       if (event.detail.view !== "landing" && !userRef.current) {
         setView("landing");
@@ -34,7 +36,7 @@ export function AppShell({ onReady }) {
       window.removeEventListener("demarche:account-updated", handleAccountChange);
       unsubscribe();
     };
-  }, [onReady]);
+  }, [onReady, publicLanding]);
 
   useEffect(() => {
     if (!user && view !== "landing") setView("landing");
@@ -43,6 +45,10 @@ export function AppShell({ onReady }) {
   useEffect(() => {
     if (view === "records") document.querySelector("#recordsHeading")?.focus();
   }, [view]);
+
+  if (publicLanding) {
+    return <LandingPage publicOnly />;
+  }
 
   return (
     <>
