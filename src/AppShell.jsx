@@ -33,8 +33,8 @@ export function AppShell({ onReady }) {
       />
       <div className={`wrap app-view${view === "landing" ? " hidden" : ""}`} id="appView">
         <header className="top">
-          <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#fff"/><path d="M6 25h10l4-11 7 22 5-15 3 4h7" fill="none" stroke="#0b7a9e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <div><h1>Démarche de soins</h1><button type="button" className="back-home" id="backHome">← Accueil</button></div>
+          <img className="app-logo" src="./logo.png" alt="Logo de l’application"/>
+          <div><h1 className="sr-only">Démarche de soins</h1><button type="button" className="back-home" id="backHome">← Accueil</button></div>
           <button type="button" className="appearance-toggle" id="appearanceToggle" data-appearance-toggle aria-label="Choisir l’apparence" aria-expanded="false" aria-controls="appearanceMenu" title="Choisir l’apparence">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5-.04-.99-.12-1.47A7 7 0 0 1 13.47 3.12 9 9 0 0 0 12 3Z"/></svg>
           </button>

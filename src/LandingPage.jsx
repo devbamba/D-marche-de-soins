@@ -7,9 +7,8 @@ export function LandingPage({ hidden = false, publicOnly = false }) {
   return (
     <div className={`landing-page${hidden ? " hidden" : ""}`} id="landingPage">
       <header className="landing-header">
-        <a className="landing-brand" href="#accueil" aria-label="Démarche de soins, accueil">
-          <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="currentColor"/><path d="M6 25h10l4-11 7 22 5-15 3 4h7" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <span>Démarche de soins</span>
+        <a className="landing-brand" href="#accueil" aria-label="Accueil">
+          <img src="./logo.png" alt=""/>
         </a>
         <button type="button" className="landing-menu-toggle" id="landingMenuToggle" aria-expanded="false" aria-controls="landingNav" aria-label="Ouvrir le menu de navigation">
           <span className="menu-icon" aria-hidden="true"><span/><span/><span/></span>
@@ -39,7 +38,7 @@ export function LandingPage({ hidden = false, publicOnly = false }) {
           <div className="device-showcase" aria-label="Aperçu de l’application sur ordinateur, tablette et smartphone">
             <div className="device device-laptop">
               <div className="laptop-screen">
-                <div className="preview-topbar"><span className="preview-brand-mark">+</span><b>Démarche de soins</b><span className="preview-top-menu">☰</span></div>
+                <div className="preview-topbar"><img className="preview-logo" src="./logo.png" alt=""/><span className="preview-top-menu">☰</span></div>
                 <div className="preview-workspace">
                   <aside className="preview-sidebar"><i/><i/><i/><i/><i/></aside>
                   <div className="preview-main">
@@ -58,7 +57,7 @@ export function LandingPage({ hidden = false, publicOnly = false }) {
             </div>
             <div className="device device-tablet" aria-hidden="true">
               <div className="tablet-screen">
-                <div className="tablet-appbar"><span className="preview-brand-mark">+</span><b>Démarche de soins</b></div>
+                <div className="tablet-appbar"><img className="preview-logo" src="./logo.png" alt=""/></div>
                 <div className="tablet-content"><small>RECUEIL DE DONNÉES</small><b>Identification du patient</b><i/><i className="short"/><div className="tablet-section">14 besoins fondamentaux <span>⌄</span></div><div className="tablet-line"/><div className="tablet-line half"/></div>
               </div>
               <span className="device-caption">Tablette</span>
@@ -66,7 +65,7 @@ export function LandingPage({ hidden = false, publicOnly = false }) {
             <div className="device device-phone" aria-hidden="true">
               <div className="phone-screen">
                 <div className="phone-notch"/>
-                <div className="phone-appbar"><span className="preview-brand-mark">+</span><b>Démarche de soins</b><span>☰</span></div>
+                <div className="phone-appbar"><img className="preview-logo" src="./logo.png" alt=""/><span>☰</span></div>
                 <div className="phone-content"><small>ÉTAPE 1 SUR 5</small><b>Identification du patient</b><i/><i/><i className="short"/><div className="phone-button"/></div>
               </div>
               <span className="device-caption">Smartphone</span>
@@ -89,7 +88,7 @@ export function LandingPage({ hidden = false, publicOnly = false }) {
           </div>
         </section>
       </main>
-      <footer className="landing-footer"><span>Démarche de soins</span><span>Outil pédagogique de démonstration · Patients fictifs uniquement</span></footer>
+      <footer className="landing-footer"><span>Outil pédagogique de démonstration · Patients fictifs uniquement</span></footer>
     </div>
   );
 }
