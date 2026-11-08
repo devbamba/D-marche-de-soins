@@ -27,7 +27,7 @@ export function ReportPreview({ title, identity, sections, needSections, unmetRo
   return (
     <>
       <h1>{title}</h1>
-      <p className="report-date">Démarche de soins — Document de travail</p>
+      <p className="report-date">Démarche de soins — Document de travail · établi le {new Date().toLocaleDateString("fr-FR")}</p>
       <div className="report-identity">
         {identity.map(([label, value]) => <p key={label}><strong>{label} :</strong><span>{value || ""}</span></p>)}
       </div>
@@ -38,7 +38,7 @@ export function ReportPreview({ title, identity, sections, needSections, unmetRo
       <TextSection title="Diagnostics infirmiers : réels ou actuels" entries={realDiagnosisRows} />
       <TextSection title="Diagnostics infirmiers : à risque ou potentiels" entries={riskDiagnosisRows} />
       <TableSection title="Objectifs et interventions" headings={["Objectifs de soins", "Interventions infirmières"]} rows={objectiveRows} />
-      <TextSection title="Problèmes médicaux" entries={medicalRows} />
+      <TableSection title="Problèmes médicaux" headings={["Problème médical", "Signes observables cliniques / biologiques", "Cause", "Objectifs des soins prescrits", "Interventions de soins", "Voie d’administration", "Effets attendus : efficacité clinique / biologique", "Effets secondaires à dépister"]} rows={medicalRows} />
       <TableSection title="Plan de soins" headings={headings} rows={planRows} />
     </>
   );

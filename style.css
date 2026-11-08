@@ -36,34 +36,6 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
 .msg{color:var(--warn);margin:8px 0}
 .msg.ok{color:var(--ok)}
 .status{color:var(--mute);font-size:.8rem;margin:4px 0}
-.account-panel{width:100%;max-width:460px;margin:0 auto;padding:30px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 44px #12303d12}
-.account-panel h2{margin:0;font-size:1.55rem;line-height:1.25}
-.account-panel>p,.account-session p{margin:0;color:var(--mute);font-size:.88rem}
-.account-heading{margin:0 0 22px;text-align:center}
-.account-eyebrow{margin:0 0 6px;color:var(--acc);font-size:.75rem;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
-.account-heading>p:last-child{margin:8px 0 0;color:var(--mute);font-size:.9rem}
-.account-providers{display:grid;grid-template-columns:1fr;gap:10px;margin-top:18px}
-.account-providers .btn{flex:1}
-.account-providers .account-divider{margin:0 0 2px}
-.account-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--mute);font-size:.78rem}
-.account-divider::before,.account-divider::after{height:1px;flex:1;background:var(--line);content:""}
-.account-form{display:grid;grid-template-columns:1fr;gap:16px}
-.account-form label{display:flex;flex-direction:column;gap:7px;font-size:.86rem;font-weight:650}
-.account-form input{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font:inherit}
-.account-form input:focus{border-color:var(--acc);outline:3px solid color-mix(in srgb,var(--acc) 18%,transparent)}
-.account-actions{display:grid;grid-template-columns:1fr}
-.account-actions .btn{width:100%;min-height:46px}
-.account-session{display:flex;align-items:center;flex-direction:column;gap:14px;text-align:center}
-.account-session h2{margin:0}
-.account-message{margin:14px 0 0;color:var(--mute);font-size:.84rem;overflow-wrap:anywhere}
-.account-switch{display:flex;justify-content:center;flex-wrap:wrap;gap:5px;margin:18px 0 0!important;font-size:.84rem!important;text-align:center}
-.account-switch button{padding:0;border:0;background:none;color:var(--acc);font:inherit;font-weight:700;cursor:pointer}
-.account-switch button:hover{text-decoration:underline}
-.account-switch button:disabled{opacity:.6;cursor:wait}
-.account-back{justify-self:center;padding:0;border:0;background:none;color:var(--acc);font:inherit;font-size:.84rem;font-weight:650;cursor:pointer}
-.account-back:hover{text-decoration:underline}
-.account-back:disabled{opacity:.6;cursor:wait}
-.account-link-help{margin:0;color:var(--mute);font-size:.88rem}
 .btn:disabled{opacity:.6;cursor:wait}
 
 /* ===== Page de présentation ===== */
@@ -93,7 +65,6 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
 .landing-secondary{color:var(--ink);font-size:.9rem;font-weight:650;text-decoration:none}
 .landing-note{display:flex;align-items:flex-start;gap:7px;max-width:460px;margin:20px 0 0;color:var(--mute);font-size:.76rem;line-height:1.55}
 .landing-note span{color:var(--ok);font-weight:800}
-.landing-account{position:relative;z-index:2;display:flex;justify-content:center;max-width:760px;margin:0 auto 48px;padding:0 24px}
 .device-showcase{position:relative;z-index:1;min-width:0;height:480px}
 .showcase-orbit{position:absolute;z-index:-1;border:1px solid color-mix(in srgb,var(--acc) 13%,transparent);border-radius:50%}
 .orbit-one{top:18px;left:8%;width:82%;height:400px;transform:rotate(-14deg)}
@@ -234,8 +205,6 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:8px;paddin
   .feature-icon{margin-bottom:14px}
   .feature-card h3{font-size:.9rem}
   .feature-card p{font-size:.79rem}
-  .landing-account{margin-bottom:36px;padding:0 16px}
-  .account-panel{padding:24px 20px}
   .landing-footer{flex-direction:column;gap:5px;padding:0 20px 20px}
 }
 @media (max-width:380px){
@@ -425,8 +394,6 @@ fieldset>.lab{margin:0 0 8px}
 @media (max-width:700px){.bh{display:none}.br{grid-template-columns:1fr}.cap{display:block}}
 @media (max-width:560px){
   .grid{grid-template-columns:1fr}
-  .account-form{grid-template-columns:1fr}
-  .account-session{align-items:flex-start;flex-direction:column}
   .record-row{align-items:flex-start;flex-direction:column}
   .records-heading{align-items:flex-start;flex-direction:column}
   .pdf-preview .print-report{padding:12px}
