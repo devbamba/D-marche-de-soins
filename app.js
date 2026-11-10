@@ -68,6 +68,7 @@ const S = [
 const data = {};
 const $ = s => document.querySelector(s);
 const APPEARANCE_KEY = "demarcheSoins.appearance.v1";
+const systemAppearanceQuery = window.matchMedia("(prefers-color-scheme: dark)");
 let currentRecordId = null;
 let deferredInstallPrompt = null;
 let currentWizardStep = 0;
@@ -88,10 +89,16 @@ function applyAppearance(appearance){
   const root=document.documentElement;
   if(appearance==="system") delete root.dataset.theme;
   else root.dataset.theme=appearance;
-  const dark=appearance==="dark"||(appearance==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const dark=appearance==="dark"||(appearance==="system"&&systemAppearanceQuery.matches);
   const themeColor=document.querySelector('meta[name="theme-color"]');
-  if(themeColor) themeColor.content=dark?"#0a6683":"#0b7a9e";
+  if(themeColor) themeColor.content=dark?"#10348f":"#123caa";
 }
+systemAppearanceQuery.addEventListener("change",event=>{
+  if(!document.documentElement.dataset.theme){
+    const themeColor=document.querySelector('meta[name="theme-color"]');
+    if(themeColor) themeColor.content=event.matches?"#10348f":"#123caa";
+  }
+});
 function initializeAppearance(){
   let appearance="system";
   try{
