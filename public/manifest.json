@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Démarche de soins",
-  "short_name": "Soins",
+  "name": "Démarche de Soins",
+  "short_name": "Démarche de Soins",
   "description": "Outil de démonstration pour préparer une démarche de soins avec des patients fictifs.",
   "lang": "fr",
   "start_url": "./",

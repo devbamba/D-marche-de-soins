@@ -1,13 +1,9 @@
-const CACHE_NAME = "demarche-soins-pwa-v19";
+const CACHE_NAME = "demarche-soins-pwa-v21";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.json",
-  "./logo.png",
-  "./icon.svg",
-  "./icon-192.png",
-  "./icon-512.png",
-  "./apple-touch-icon.png"
+  "./logo.png"
 ];
 
 self.addEventListener("install",event=>{
