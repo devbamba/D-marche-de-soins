@@ -60,7 +60,7 @@ const S = [
   {id:"taille",l:"Taille (cm)",ty:"number",min:30,max:250},
  ]},
  {id:"g", t:"Données supplémentaires", f:[
-  {id:"supp",l:"Autres informations utiles",ty:"area",ph:"Ex. : Données paracliniques…",full:1}
+  {id:"supp",l:"Données paracliniques…",ty:"area",ph:"Autres informations utiles : ",full:1}
  ]}
 ];
 
@@ -251,7 +251,7 @@ function calcIMC(){
 
 /* ===== GUIDE DE RÉDACTION : histoire de la maladie ===== */
 let insTexts = [];
-const TODO = "[à compléter]";
+const TODO = "[Il s'agit d'un(e) patient(e) agé(e) de "+(data.age||)+", aux antécédents médicaux de : "+(data.ant_med||TODO)+" ou sans antécédents, admis(e) à ce jour ou le "+(data.entree||TODO)+" dans le service "+(data.lieu||TODO)+" pour "+(data.diag||TODO)+".]";
 function fdate(d){ return d ? d.split("-").reverse().join("/") : TODO; }
 function phraseCivil(){
   const f = data.sexe==="Féminin";
