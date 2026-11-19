@@ -251,7 +251,7 @@ function calcIMC(){
 
 /* ===== GUIDE DE RÉDACTION : histoire de la maladie ===== */
 let insTexts = [];
-const TODO = "[Il s'agit d'un(e) patient(e) agé(e) de "+(data.age||)+", aux antécédents médicaux de : "+(data.ant_med||TODO)+" ou sans antécédents, admis(e) à ce jour ou le "+(data.entree||TODO)+" dans le service "+(data.lieu||TODO)+" pour "+(data.diag||TODO)+".]";
+const TODO = "[Il s'agit d'un(e) patient(e) agé(e) de "+(data.age||TODO)+", aux antécédents médicaux de : "+(data.ant_med||TODO)+" ou sans antécédents, admis(e) à ce jour ou le "+(data.entree||TODO)+" dans le service "+(data.lieu||TODO)+" pour "+(data.diag||TODO)+".]";
 function fdate(d){ return d ? d.split("-").reverse().join("/") : TODO; }
 function phraseCivil(){
   const f = data.sexe==="Féminin";
