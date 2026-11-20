@@ -1,0 +1,16 @@
+
+> demarche-de-soins@1.0.0 dev
+> vite --host 127.0.0.1
+
+
+  VITE v8.3.5  ready in 288 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+  ➜  press h + enter to show help
+13 h 02 min 35 s [vite] (client) page reload app.js
+13 h 07 min 11 s [vite] (client) page reload app.js
+13 h 08 min 57 s [vite] (client) page reload app.js
+13 h 17 min 07 s [vite] (client) page reload app.js
+13 h 19 min 12 s [vite] (client) page reload app.js
+13 h 23 min 48 s [vite] (client) page reload app.js
+14 h 25 min 21 s [vite] (client) page reload app.js

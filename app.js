@@ -43,7 +43,6 @@ const S = [
   {id:"alim",l:"Habitudes alimentaires",ty:"area",full:1}
  ]},
  {id:"d", t:"Résumé de l’histoire de la maladie", f:[
-  {id:"guide",ty:"guide",full:1},
   {id:"histoire",l:"Résumé",ty:"area",full:1,req:1}
  ]},
  {id:"e", t:"Examen clinique", f:[
@@ -56,6 +55,8 @@ const S = [
   {id:"pouls",l:"Pouls (bpm)",ty:"number",min:20,max:250},
   {id:"fr",l:"Fréquence respiratoire (/min)",ty:"number",min:4,max:80},
   {id:"spo2",l:"SpO₂ (%)",ty:"number",min:50,max:100},
+  {id:"glycemie",l:"Glycémie (g/L)",ty:"number",min:0,max:10,step:"0.01"},
+  {id:"diurese",l:"Diurèse (mL/24 h)",ty:"number",min:0,max:10000,step:"1"},
   {id:"poids",l:"Poids (kg)",ty:"number",min:1,max:300,step:"0.1"},
   {id:"taille",l:"Taille (cm)",ty:"number",min:30,max:250},
  ]},
@@ -198,6 +199,8 @@ function build(){
   $("#nav").setAttribute("aria-hidden","true");
   navigationRoot=createRoot($("#nav"));
   navigationRoot.render(createElement(NavigationMenu));
+  migrateHistoryTemplate();
+  syncHistoryTemplate();
   setupWizard();
   update();
 }
@@ -240,7 +243,7 @@ function setWizardStep(index,{scroll=true}={}){
 }
 function update(){
   calcIMC();
-  insTexts=[phraseCivil(),phraseAdmission()];
+  syncHistoryTemplate();
   window.dispatchEvent(new CustomEvent("demarche:data-updated",{detail:{data:{...data}}}));
 }
 function calcIMC(){
@@ -249,33 +252,47 @@ function calcIMC(){
 }
 
 
-/* ===== GUIDE DE RÉDACTION : histoire de la maladie ===== */
-let insTexts = [];
-const TODO = "[Il s'agit d'un(e) patient(e) agé(e) de "+(data.age||TODO)+", aux antécédents médicaux de : "+(data.ant_med||TODO)+" ou sans antécédents, admis(e) à ce jour ou le "+(data.entree||TODO)+" dans le service "+(data.lieu||TODO)+" pour "+(data.diag||TODO)+".]";
-function fdate(d){ return d ? d.split("-").reverse().join("/") : TODO; }
-function phraseCivil(){
-  const f = data.sexe==="Féminin";
-  const civ = f ? "Mme" : (data.sexe==="Masculin" ? "M." : "");
-  const nom = [civ, data.prenom, data.nom].filter(Boolean).join(" ") || TODO;
-  const p = [nom, data.age ? data.age+" ans" : TODO];
-  if(data.profession) p.push(data.profession);
-  if(data.civil) p.push(data.civil.toLowerCase());
-  let s = p.join(", ");
-  s += data.ant_med ? ", aux antécédents médicaux de : "+data.ant_med.trim() : ", antécédents médicaux : "+TODO;
-  return s+".";
+/* ===== PRÉREMPLISSAGE : histoire de la maladie ===== */
+let lastHistoryTemplate = "";
+function fdate(d){ return d ? d.split("-").reverse().join("/") : "[à compléter]"; }
+function todayISO(){
+  const now = new Date();
+  const month = String(now.getMonth()+1).padStart(2,"0");
+  const day = String(now.getDate()).padStart(2,"0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
-function phraseAdmission(){
-  const adm = data.sexe==="Féminin" ? "admise" : "admis";
-  return `Le patient est ${adm} le ${fdate(data.entree)} dans le service ${data.lieu||TODO} pour ${data.diag||TODO}.`.replace("Le patient", data.sexe==="Féminin" ? "La patiente" : "Le patient");
+function admissionDate(){
+  if(!data.entree) return "[à compléter]";
+  return data.entree===todayISO() ? "à ce jour" : `le ${fdate(data.entree)}`;
 }
-function insertText(t){
-  const el = $("#f_histoire"); if(!el) return;
-  data.histoire = data.histoire&&data.histoire.trim() ? data.histoire.trim()+"\n\n"+t : t;
-  update();
-  saveDraft();
-  refreshValidation();
-  el.classList.remove("bad");
-  el.focus();
+function historyTemplate(){
+  const age = data.age || "[à compléter]";
+  const antecedents = String(data.ant_med || "").trim();
+  const normalizedAntecedents = antecedents.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const noAntecedents = /^(sans anteced|aucun|aucune|neant|ras\b)/.test(normalizedAntecedents);
+  const date = admissionDate();
+  const lieu = data.lieu || "[à compléter]";
+  const diagnostic = data.diag || "[à compléter]";
+  const female = data.sexe === "Féminin";
+  const male = data.sexe === "Masculin";
+  const patient = female ? "d'une patiente" : male ? "d'un patient" : "d'un(e) patient(e)";
+  const aged = female ? "âgée" : male ? "âgé" : "âgé(e)";
+  const admitted = female ? "admise" : male ? "admis" : "admis(e)";
+  const antecedentsText = antecedents && !noAntecedents ? `, aux antécédents de ${antecedents}` : "";
+  return `Il s'agit ${patient} ${aged} de ${age} ans${antecedentsText}, ${admitted} ${date} au service de ${lieu} pour ${diagnostic}.`;
+}
+function syncHistoryTemplate(){
+  const next = historyTemplate();
+  const current = String(data.histoire || "").trim();
+  if(!current || data.histoire === lastHistoryTemplate) data.histoire = next;
+  lastHistoryTemplate = next;
+}
+function migrateHistoryTemplate(){
+  const current = String(data.histoire || "").trim();
+  const looksGenerated = current.startsWith("Il s'agit ")
+    && current.includes(" au service de ")
+    && current.endsWith(".");
+  if(looksGenerated) data.histoire = historyTemplate();
 }
 
 
@@ -303,9 +320,9 @@ const COLS = [
 ];
 /* Pistes d’observation : [biologique, psychologique, sociologique] */
 const HINTS = {
-  respirer:["Fréquence et rythme respiratoires, SpO₂, toux, expectorations, dyspnée, cyanose, tirage, oxygénothérapie","Anxiété, sensation d’étouffement, peur de manquer d’air","Tabagisme, exposition à la fumée ou à la poussière, aération du logement et du lieu de travail"],
+  respirer:["Fréquence et rythme respiratoires, SpO₂, toux, expectorations, dyspnée, cyanose, tirage, oxygénothérapie, intégrité des voies respiratoires, rhinorrhée, présence d’un crachoir, d’une canule de trachéotomie et d’une sonde à oxygène","Anxiété, sensation d’étouffement, peur de manquer d’air","Tabagisme, exposition à la fumée ou à la poussière, aération du logement et du lieu de travail"],
   boire_manger:["Appétit, quantité mangée et bue, mastication, déglutition, nausées, vomissements, état de la bouche, poids, régime prescrit","Plaisir de manger, refus ou compulsion, dégoût, stress lié à l’alimentation","Habitudes et interdits alimentaires, moyens pour s’alimenter, repas seul ou en famille, aide pour manger"],
-  eliminer:["Urines (quantité, aspect), selles (fréquence, aspect), constipation, diarrhée, sueurs, sonde urinaire, couche, vomissements","Gêne, pudeur ou honte liées à la sonde, à la couche ou à l’incontinence","Accès aux toilettes, intimité, aide nécessaire pour éliminer"],
+  eliminer:["Urines (quantité, aspect), selles (fréquence, aspect), constipation, diarrhée, sueurs, sonde urinaire, couche, vomissements, menstrues (fréquence, durée, abondance, aménorrhée, dysménorrhée, leucorrhée)","Gêne, pudeur ou honte liées à la sonde, à la couche ou à l’incontinence","Accès aux toilettes, intimité, aide nécessaire pour éliminer"],
   mouvoir:["Mobilité, force musculaire, équilibre, douleur, alitement, posture, aides techniques (canne, fauteuil), risque de chute","Motivation à bouger, peur de tomber ou d’avoir mal","Activité physique habituelle, postures et efforts liés au travail, aide de l’entourage pour se déplacer"],
   dormir:["Durée et qualité du sommeil, réveils nocturnes, somnolence, douleur ou toux gênant le sommeil, traitement sédatif","Anxiété, ruminations, cauchemars, fatigue ressentie","Bruit, lumière, partage de la chambre, rythme de travail, habitudes de sommeil"],
   vetir:["Capacité à s’habiller seul, dextérité, tenue adaptée à la température, vêtements propres, perfusion ou sonde gênant l’habillage","Image de soi, pudeur, souci de l’apparence","Habitudes vestimentaires, tenue liée à la religion ou à la culture, moyens de se vêtir"],
@@ -785,7 +802,6 @@ document.addEventListener("click",e=>{
   }
   else if(t.dataset.add) addRow(t.dataset.add);
   else if(t.dataset.del) delRow(...t.dataset.del.split(":"));
-  else if(t.dataset.ins!==undefined) insertText(insTexts[+t.dataset.ins]);
   else if(t.id==="save") save();
 });
 
